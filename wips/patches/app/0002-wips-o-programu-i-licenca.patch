@@ -1,0 +1,56 @@
+diff --git a/flutter/lib/desktop/pages/desktop_setting_page.dart b/flutter/lib/desktop/pages/desktop_setting_page.dart
+index 730d758..45e292f 100644
+--- a/flutter/lib/desktop/pages/desktop_setting_page.dart
++++ b/flutter/lib/desktop/pages/desktop_setting_page.dart
+@@ -2617,15 +2617,15 @@ class _AboutState extends State<_About> {
+                       .marginSymmetric(vertical: 4.0)),
+               InkWell(
+                   onTap: () {
+-                    launchUrlString('https://rustdesk.com/privacy.html');
++                    launchUrlString('@@WIPS_SOURCE_URL@@');
+                   },
+                   child: Text(
+-                    translate('Privacy Statement'),
++                    'Izvorni kod',
+                     style: linkStyle,
+                   ).marginSymmetric(vertical: 4.0)),
+               InkWell(
+                   onTap: () {
+-                    launchUrlString('https://rustdesk.com');
++                    launchUrlString('@@WIPS_WEBSITE@@');
+                   },
+                   child: Text(
+                     translate('Website'),
+@@ -2643,15 +2643,9 @@ class _AboutState extends State<_About> {
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+                           Text(
+-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
++                            'Temelji se na RustDesku, © Purslane Tech Pte. Ltd.\nLicenca: GNU AGPL-3.0, bez ikakvog jamstva.\nhttps://www.gnu.org/licenses/agpl-3.0.html',
+                             style: const TextStyle(color: Colors.white),
+                           ),
+-                          Text(
+-                            translate('Slogan_tip'),
+-                            style: TextStyle(
+-                                fontWeight: FontWeight.w800,
+-                                color: Colors.white),
+-                          )
+                         ],
+                       ),
+                     ),
+diff --git a/flutter/lib/desktop/pages/install_page.dart b/flutter/lib/desktop/pages/install_page.dart
+index 58ff028..6b7d3f0 100644
+--- a/flutter/lib/desktop/pages/install_page.dart
++++ b/flutter/lib/desktop/pages/install_page.dart
+@@ -233,9 +233,9 @@ class _InstallPageBodyState extends State<_InstallPageBody>
+                           InkWell(
+                             hoverColor: Colors.transparent,
+                             onTap: () => launchUrlString(
+-                                'https://rustdesk.com/privacy.html'),
++                                'https://www.gnu.org/licenses/agpl-3.0.html'),
+                             child: Tooltip(
+-                              message: 'https://rustdesk.com/privacy.html',
++                              message: 'https://www.gnu.org/licenses/agpl-3.0.html',
+                               child: Row(children: [
+                                 Icon(Icons.launch_outlined, size: 16)
+                                     .marginOnly(right: 5),

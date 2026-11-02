@@ -12,8 +12,19 @@ Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0
 
 **Licenca:** AGPL-3.0, kao upstream (`LICENCE`). Izvorni kod svake objavljene verzije javno je dostupan.
 
+## Izmjene
+| Patch | Što mijenja |
+|---|---|
+| `hbb_common/0001-wips-naziv-server-kljuc` | naziv aplikacije, ID server, javni ključ, api-server (zapis spajanja) |
+| `hbb_common/0002-wips-ugradjene-opcije` | skriva "Powered by RustDesk" i mrežne postavke (server, proxy, WebSocket), da korisnika nitko ne može nagovoriti na tuđi server |
+| `app/0001-wips-windows-metapodaci` | naziv i tvrtka u svojstvima .exe datoteka (program i exe koji se preuzima) |
+| `app/0002-wips-o-programu-i-licenca` | "O aplikaciji": izvorni kod, wips.hr, napomena o RustDesku i licenci; instalacija: link na licencu umjesto RustDeskove izjave o privatnosti |
+| `app/0003-wips-hr-prijevod-naziva` | hrvatski tekstovi u kojima se naziv sklanja ("RustDesku" bi postalo "WiPSPodrskau") |
+
+Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env`. Ikone: `python3 -P wips/branding/generiraj-ikone.py` iz `logo-izvor.png` (treba Pillow), rezultat se commita; CI ih samo kopira.
+
 ## Status
-- [ ] Faza 1: build nepromijenjenog upstreama na GitHub Actions
-- [ ] Faza 2: patchevi za naziv, server i ključ (testni server)
-- [ ] Faza 3: ikone i logo
-- [ ] Faza 4: pravi javni ključ s rd.wips.hr, pilot verzija
+- [x] Faza 1: build nepromijenjenog upstreama na GitHub Actions
+- [x] Faza 2: patchevi za naziv, server i ključ (testni server)
+- [x] Faza 3: ikone, logo, "O aplikaciji", skrivene mrežne postavke
+- [ ] Faza 4: pravi javni ključ s rd.wips.hr (ugrađen), test, pilot verzija

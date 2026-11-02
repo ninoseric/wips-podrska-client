@@ -1,0 +1,18 @@
+diff --git a/src/config.rs b/src/config.rs
+index 9ca0267..ce4aef6 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -83,7 +83,12 @@ lazy_static::lazy_static! {
+     pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
+     pub static ref OVERWRITE_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
+     pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
+-    pub static ref BUILTIN_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
++    pub static ref BUILTIN_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from([
++        ("hide-powered-by-me".to_owned(), "Y".to_owned()),
++        ("hide-server-settings".to_owned(), "Y".to_owned()),
++        ("hide-proxy-settings".to_owned(), "Y".to_owned()),
++        ("hide-websocket-settings".to_owned(), "Y".to_owned()),
++    ]));
+ }
+ 
+ #[cfg(target_os = "android")]

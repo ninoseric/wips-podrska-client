@@ -1,5 +1,5 @@
 diff --git a/Cargo.toml b/Cargo.toml
-index 1002586..7e81f3f 100644
+index 1002586..74fd377 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -257,8 +257,8 @@ webrtc-sctp = { git = "https://github.com/rustdesk-org/webrtc", rev = "49c89bd8d
@@ -9,12 +9,12 @@ index 1002586..7e81f3f 100644
 -ProductName = "RustDesk"
 -FileDescription = "RustDesk Remote Desktop"
 +ProductName = "@@WIPS_DISPLAY_NAME@@"
-+FileDescription = "@@WIPS_DISPLAY_NAME@@ (temeljeno na RustDesku)"
++FileDescription = "@@WIPS_DISPLAY_NAME@@"
  OriginalFilename = "rustdesk.exe"
  
  [target.'cfg(target_os="windows")'.build-dependencies]
 diff --git a/flutter/windows/runner/Runner.rc b/flutter/windows/runner/Runner.rc
-index 88d1854..35400e1 100644
+index 88d1854..ffc6317 100644
 --- a/flutter/windows/runner/Runner.rc
 +++ b/flutter/windows/runner/Runner.rc
 @@ -89,13 +89,13 @@ BEGIN
@@ -24,7 +24,7 @@ index 88d1854..35400e1 100644
 -            VALUE "CompanyName", "Purslane Tech Pte. Ltd." "\0"
 -            VALUE "FileDescription", "RustDesk Remote Desktop" "\0"
 +            VALUE "CompanyName", "@@WIPS_COMPANY@@" "\0"
-+            VALUE "FileDescription", "@@WIPS_DISPLAY_NAME@@ (temeljeno na RustDesku)" "\0"
++            VALUE "FileDescription", "@@WIPS_DISPLAY_NAME@@" "\0"
              VALUE "FileVersion", VERSION_AS_STRING "\0"
              VALUE "InternalName", "rustdesk" "\0"
              VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved." "\0"
@@ -34,3 +34,21 @@ index 88d1854..35400e1 100644
              VALUE "ProductVersion", VERSION_AS_STRING "\0"
          END
      END
+diff --git a/libs/portable/Cargo.toml b/libs/portable/Cargo.toml
+index f3dcb51..7f53fd2 100644
+--- a/libs/portable/Cargo.toml
++++ b/libs/portable/Cargo.toml
+@@ -28,9 +28,10 @@ native-windows-gui = {version = "1.0", default-features = false, features = ["an
+ 
+ [package.metadata.winres]
+ LegalCopyright = "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved."
+-ProductName = "RustDesk"
+-OriginalFilename = "rustdesk.exe"
+-FileDescription = "RustDesk Remote Desktop"
++ProductName = "@@WIPS_DISPLAY_NAME@@"
++OriginalFilename = "@@WIPS_APP_NAME@@.exe"
++FileDescription = "@@WIPS_DISPLAY_NAME@@"
++CompanyName = "@@WIPS_COMPANY@@"
+ #ProductVersion = ""
+ 
+ [target.'cfg(target_os="windows")'.build-dependencies]

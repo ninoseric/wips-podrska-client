@@ -1,0 +1,31 @@
+diff --git a/src/lang/hr.rs b/src/lang/hr.rs
+index 38797fe..dd5d770 100644
+--- a/src/lang/hr.rs
++++ b/src/lang/hr.rs
+@@ -415,7 +415,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
+         ("Ask the remote user for authentication", "Pitajte udaljenog korisnika za autentifikaciju"),
+         ("Choose this if the remote account is administrator", "Odaberite ovu opciju ako je udaljeni račun administrator"),
+         ("Transmit the username and password of administrator", "Prijenos administratorskog korisničkog imena i lozinke"),
+-        ("still_click_uac_tip", "Još uvijek zahtijeva da udaljeni korisnik klikne OK u UAC prozoru pokrenutog RustDeska."),
++        ("still_click_uac_tip", "Još uvijek zahtijeva da udaljeni korisnik klikne OK u UAC prozoru pokrenute aplikacije RustDesk."),
+         ("Request Elevation", "Zahtjev za podizanje"),
+         ("wait_accept_uac_tip", "Pričekajte da udaljeni korisnik prihvati UAC dijaloški okvir."),
+         ("Elevate successfully", "Uspješno podizanje"),
+@@ -576,7 +576,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
+         ("share_warning_tip", "Gornja polja su podijeljena i vidljiva drugima."),
+         ("Everyone", "Svatko"),
+         ("ab_web_console_tip", "Više na web konzoli"),
+-        ("allow-only-conn-window-open-tip", "Dopusti vezu samo ako je prozor RustDeska otvoren"),
++        ("allow-only-conn-window-open-tip", "Dopusti vezu samo ako je prozor aplikacije RustDesk otvoren"),
+         ("no_need_privacy_mode_no_physical_displays_tip", "Nema fizičkih zaslona, nema potrebe za korištenjem načina privatnosti."),
+         ("Follow remote cursor", "Prati udaljeni kursor"),
+         ("Follow remote window focus", "Prati fokus udaljenog prozora"),
+@@ -607,7 +607,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
+         ("enable-bot-desc", "1. Otvorite razgovor s @BotFather.\n2. Pošaljite naredbu \"/newbot\". Nakon dovršetka ovog koraka primit ćete token.\n3. Započnite razgovor s novostvorenim botom. Pošaljite poruku koja počinje kosom crtom (\"/\"), poput \"/hello\", kako biste ga aktivirali.\n"),
+         ("cancel-2fa-confirm-tip", "Jeste li sigurni da želite otkazati 2FA?"),
+         ("cancel-bot-confirm-tip", "Jeste li sigurni da želite otkazati Telegram bota?"),
+-        ("About RustDesk", "O RustDesku"),
++        ("About RustDesk", "O aplikaciji RustDesk"),
+         ("Send clipboard keystrokes", "Pošalji pritiske tipki iz međuspremnika"),
+         ("network_error_tip", "Provjerite svoju mrežnu vezu, a zatim kliknite Pokušaj ponovno."),
+         ("Unlock with PIN", "Otključaj PIN-om"),

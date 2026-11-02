@@ -1,0 +1,2 @@
+# Upstream .gitignore ignorira *png; logo i generirane ikone moraju biti u repozitoriju.
+!*png
