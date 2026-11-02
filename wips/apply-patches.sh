@@ -26,6 +26,33 @@ apply_dir() {
 apply_dir wips/patches/rustdesk .
 apply_dir wips/patches/hbb_common libs/hbb_common
 
+# zamjena @@WIPS_*@@ oznaka vrijednostima iz wips/server.env
+python3 - <<'EOF'
+import pathlib, re, subprocess, sys
+env = {}
+for line in pathlib.Path("wips/server.env").read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if line and not line.startswith("#"):
+        k, v = line.split("=", 1)
+        env[k.strip()] = v.strip()
+files = subprocess.run(["git", "grep", "-l", "@@WIPS_"], capture_output=True, text=True).stdout.split()
+files += ["libs/hbb_common/" + f for f in subprocess.run(
+    ["git", "-C", "libs/hbb_common", "grep", "-l", "@@WIPS_"], capture_output=True, text=True).stdout.split()]
+files = [f for f in files if not f.startswith("wips/")]
+for f in files:
+    p = pathlib.Path(f)
+    s = p.read_text(encoding="utf-8")
+    for k, v in env.items():
+        s = s.replace(f"@@{k}@@", v)
+    left = re.findall(r"@@WIPS_[A-Z_]+@@", s)
+    if left:
+        sys.exit(f"nezamijenjene oznake u {f}: {left}")
+    p.write_text(s, encoding="utf-8")
+    print(f"zamijenjeno: {f}")
+if not files:
+    sys.exit("nijedna @@WIPS_ oznaka nije pronađena - jesu li patchevi primijenjeni?")
+EOF
+
 if [ -x wips/branding/apply-branding.sh ]; then
   wips/branding/apply-branding.sh
 fi
