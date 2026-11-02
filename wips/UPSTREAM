@@ -1,0 +1,8 @@
+RUSTDESK_TAG=1.5.1
+RUSTDESK_COMMIT=23e5bb471a040d62f0a6ad52591fb30784265b73
+HBB_COMMON_COMMIT=fae47e024dd83cef6aaecde0aa7d11731df11649
+IMPORTED=2026-11-02
+# Izmjene upstream stabla pri uvozu (sve ostale izmjene su u wips/patches i primjenjuju se u CI-ju):
+#   - obrisani svi .github/workflows/* osim bridge.yml i third-party-RustDeskTempTopMostWindow.yml
+#     (inače bi se upstream CI pokretao na svaki push)
+#   - dodani wips/ i .github/workflows/wips-build-windows.yml
