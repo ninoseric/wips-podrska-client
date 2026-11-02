@@ -23,6 +23,9 @@ env:
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
   OUT_NAME: ${{ (github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && 'rustdesk-upstream' || 'WiPSPodrska' }}
+  # Instalacija registrira servis i prečace na "<APP_NAME>.exe" (src/platform/windows.rs), a samo kopira mapu,
+  # pa glavni exe mora imati ime aplikacije (= WIPS_APP_NAME iz wips/server.env). Inače: exit code 9059.
+  EXE_NAME: ${{ (github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && 'rustdesk' || 'WiPSPodrska' }}
 
 permissions:
   contents: read
@@ -126,6 +129,7 @@ jobs:
         run: |
           python3 .\build.py --portable --flutter --skip-portable-pack --hwcodec --vram
           mv ./flutter/build/windows/x64/runner/Release ./rustdesk
+          if ($env:EXE_NAME -ne "rustdesk") { mv ./rustdesk/rustdesk.exe "./rustdesk/$env:EXE_NAME.exe" }
 
           # virtualni zaslon (kao upstream)
           Invoke-WebRequest -Uri https://github.com/rustdesk-org/rdev/releases/download/usbmmidd_v2/usbmmidd_v2.zip -OutFile usbmmidd_v2.zip
@@ -153,7 +157,7 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
+          python3 ./generate.py -f ../../rustdesk/ -o . -e "../../rustdesk/${EXE_NAME}.exe"
           popd
           mkdir -p ./out
           ver=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
