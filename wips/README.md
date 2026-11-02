@@ -5,7 +5,7 @@ Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0
 | Što | Gdje |
 |---|---|
 | Upstream verzija | `wips/UPSTREAM` |
-| Naše izmjene izvornog koda | `wips/patches/rustdesk/*.patch`, `wips/patches/hbb_common/*.patch` |
+| Naše izmjene izvornog koda | `wips/patches/app/*.patch`, `wips/patches/hbb_common/*.patch` |
 | Brend (ikone, logo) | `wips/branding/` |
 | Primjena izmjena | `wips/apply-patches.sh` |
 | Build | `.github/workflows/wips-build-windows.yml` (ručno ili git tag `v*`) |

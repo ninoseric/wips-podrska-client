@@ -1,0 +1,36 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 1002586..7e81f3f 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -257,8 +257,8 @@ webrtc-sctp = { git = "https://github.com/rustdesk-org/webrtc", rev = "49c89bd8d
+ 
+ [package.metadata.winres]
+ LegalCopyright = "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved."
+-ProductName = "RustDesk"
+-FileDescription = "RustDesk Remote Desktop"
++ProductName = "@@WIPS_DISPLAY_NAME@@"
++FileDescription = "@@WIPS_DISPLAY_NAME@@ (temeljeno na RustDesku)"
+ OriginalFilename = "rustdesk.exe"
+ 
+ [target.'cfg(target_os="windows")'.build-dependencies]
+diff --git a/flutter/windows/runner/Runner.rc b/flutter/windows/runner/Runner.rc
+index 88d1854..35400e1 100644
+--- a/flutter/windows/runner/Runner.rc
++++ b/flutter/windows/runner/Runner.rc
+@@ -89,13 +89,13 @@ BEGIN
+     BEGIN
+         BLOCK "040904e4"
+         BEGIN
+-            VALUE "CompanyName", "Purslane Tech Pte. Ltd." "\0"
+-            VALUE "FileDescription", "RustDesk Remote Desktop" "\0"
++            VALUE "CompanyName", "@@WIPS_COMPANY@@" "\0"
++            VALUE "FileDescription", "@@WIPS_DISPLAY_NAME@@ (temeljeno na RustDesku)" "\0"
+             VALUE "FileVersion", VERSION_AS_STRING "\0"
+             VALUE "InternalName", "rustdesk" "\0"
+             VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved." "\0"
+             VALUE "OriginalFilename", "rustdesk.exe" "\0"
+-            VALUE "ProductName", "RustDesk" "\0"
++            VALUE "ProductName", "@@WIPS_DISPLAY_NAME@@" "\0"
+             VALUE "ProductVersion", VERSION_AS_STRING "\0"
+         END
+     END

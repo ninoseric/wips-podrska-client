@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Primjenjuje WiPS patcheve na upstream RustDesk stablo (pokreće se u CI-ju prije builda).
-#   wips/patches/rustdesk/*.patch    -> korijen repozitorija
+#   wips/patches/app/*.patch         -> korijen repozitorija (ne 'rustdesk/': upstream .gitignore ignorira tu riječ)
 #   wips/patches/hbb_common/*.patch  -> libs/hbb_common (submodul)
 #   wips/branding/                   -> ikone (kad postoje)
 set -euo pipefail
@@ -23,7 +23,7 @@ apply_dir() {
   done
 }
 
-apply_dir wips/patches/rustdesk .
+apply_dir wips/patches/app .
 apply_dir wips/patches/hbb_common libs/hbb_common
 
 # zamjena @@WIPS_*@@ oznaka vrijednostima iz wips/server.env

@@ -6,6 +6,11 @@ name: WiPS build (Windows x64)
 
 on:
   workflow_dispatch:
+    inputs:
+      apply_patches:
+        description: "Primijeni WiPS patcheve (false = nepromijenjeni upstream, za dijagnostiku)"
+        type: boolean
+        default: true
   push:
     tags:
       - "v*"
@@ -17,7 +22,7 @@ env:
   FLUTTER_VERSION: "3.24.5"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
-  OUT_NAME: "WiPSPodrska"
+  OUT_NAME: ${{ (github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && 'rustdesk-upstream' || 'WiPSPodrska' }}
 
 permissions:
   contents: read
@@ -52,6 +57,7 @@ jobs:
           submodules: recursive
 
       - name: Apply WiPS patches
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.apply_patches }}
         shell: bash
         run: bash wips/apply-patches.sh
 
@@ -147,9 +153,7 @@ jobs:
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          exe=$(ls ../../rustdesk/*.exe | grep -v -i -E 'deviceinstaller' | head -1)
-          echo "glavni exe: $exe"
-          python3 ./generate.py -f ../../rustdesk/ -o . -e "$exe"
+          python3 ./generate.py -f ../../rustdesk/ -o . -e ../../rustdesk/rustdesk.exe
           popd
           mkdir -p ./out
           ver=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
