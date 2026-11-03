@@ -1,7 +1,15 @@
 # WiPS Udaljena Korisnicka Podrska - Windows x64 build.
 # Skraćena kopija job-a build-for-windows-flutter (x86_64) iz upstream
-# .github/workflows/flutter-build.yml (RustDesk 1.5.1). Izostavljeno: arm64, potpisivanje,
-# testovi, MSI, printer driver, update metadata. Potpisivanje se dodaje kad stigne certifikat.
+# .github/workflows/flutter-build.yml (RustDesk 1.5.1). Izostavljeno: arm64, testovi, MSI,
+# printer driver, update metadata.
+#
+# Potpisivanje (Azure Artifact Signing, isti account kao WiPS.ERP; ADR 0005) se preskače dok repo nema
+# varijablu ARTIFACT_SIGNING_ACCOUNT. Kao upstream: potpišu se datoteke u buildu prije pakiranja, pa
+# instalacijski exe. Jednokratno postavljanje:
+#   1. Na istoj App registration kao za WiPS.ERP dodati Federated credential → GitHub Actions:
+#      organizacija ninoseric, repo wips-podrska-client, entity type Environment, naziv „release”.
+#   2. Settings → Secrets and variables → Actions → Variables (to nisu tajne): AZURE_CLIENT_ID,
+#      AZURE_TENANT_ID, ARTIFACT_SIGNING_ENDPOINT, ARTIFACT_SIGNING_ACCOUNT, ARTIFACT_SIGNING_PROFILE.
 name: WiPS build (Windows x64)
 
 on:
@@ -43,6 +51,12 @@ jobs:
   build-windows-x64:
     needs: [generate-bridge, build-topmost-window]
     runs-on: windows-2022
+    environment: release # uz ovaj environment vezan je federated credential u Azureu
+    permissions:
+      contents: read
+      id-token: write # OIDC prijava u Azure
+    env:
+      POTPIS: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' }}
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
@@ -147,6 +161,39 @@ jobs:
           name: topmostwindow-artifacts-x64
           path: "./rustdesk"
 
+      - name: Popis datoteka za potpis (nepotpisani .exe/.dll u buildu)
+        if: env.POTPIS == 'true'
+        shell: pwsh
+        run: |
+          # Potpisuje se samo ono što nema potpis. Sve to gradi ovaj workflow iz izvornog koda (osim gotovog
+          # RustDesk flutter enginea), a isto potpisuje i upstream. Već potpisane datoteke zadržavaju potpis autora;
+          # drajver usbmmidd_v2 (.sys/.cat) se ne dira — kernel drajvere Artifact Signing ne potpisuje.
+          $popis = Get-ChildItem rustdesk -Recurse -File -Include '*.exe', '*.dll' |
+            Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -eq 'NotSigned' } |
+            ForEach-Object { [IO.Path]::GetRelativePath($PWD.Path, $_.FullName) }
+          if (-not $popis) { Write-Error "U rustdesk\ nema nepotpisanih .exe/.dll — build nije dao što se očekuje."; exit 1 }
+          $popis | Set-Content potpis-popis.txt
+          $popis | ForEach-Object { Write-Host $_ }
+
+      - name: Prijava u Azure (OIDC, bez tajni)
+        if: env.POTPIS == 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Potpis datoteka u buildu
+        if: env.POTPIS == 'true'
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-catalog: ${{ github.workspace }}\potpis-popis.txt
+          # Bez vremenskog žiga potpis prestaje vrijediti s certifikatom, a on traje oko 3 dana.
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+
       - name: Build self-extracting executable
         shell: bash
         run: |
@@ -159,6 +206,46 @@ jobs:
           ver=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
           mv ./target/release/rustdesk-portable-packer.exe "./out/${OUT_NAME}-${ver}-x86_64.exe"
           (cd out && sha256sum *.exe > SHA256SUMS && cat SHA256SUMS)
+
+      # Ponovna prijava: OIDC token kojim se Azure prijava obnavlja vrijedi kratko, a pakiranje između potraje.
+      - name: Prijava u Azure za potpis instalacijskog exe-a
+        if: env.POTPIS == 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Potpis instalacijskog exe-a
+        if: env.POTPIS == 'true'
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\out
+          files-folder-filter: exe
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+
+      - name: Provjera potpisa i vremenskog žiga
+        if: env.POTPIS == 'true'
+        shell: pwsh
+        run: |
+          $datoteke = @(Get-Content potpis-popis.txt) + @(Get-ChildItem out -Filter *.exe | ForEach-Object FullName)
+          $lose = $datoteke | ForEach-Object { Get-AuthenticodeSignature $_ } |
+            Where-Object { $_.Status -ne 'Valid' -or -not $_.TimeStamperCertificate }
+          if ($lose) {
+            $lose | Format-Table Path, Status, StatusMessage -AutoSize | Out-String | Write-Host
+            Write-Error "Nisu sve datoteke ispravno potpisane s vremenskim žigom."
+            exit 1
+          }
+          Write-Host "Potpisano i provjereno: $($datoteke.Count) datoteka."
+
+      # Potpis mijenja sadržaj exe-a, pa se SHA256SUMS iz koraka pakiranja ponovno računa.
+      - name: SHA256SUMS nakon potpisa
+        if: env.POTPIS == 'true'
+        shell: bash
+        run: (cd out && sha256sum *.exe > SHA256SUMS && cat SHA256SUMS)
 
       - name: Upload portable exe
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
