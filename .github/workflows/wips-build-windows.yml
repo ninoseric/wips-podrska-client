@@ -20,7 +20,8 @@ env:
   SCITER_RUST_VERSION: "1.75"
   LLVM_VERSION: "15.0.6"
   FLUTTER_VERSION: "3.24.5"
-  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  # vcpkg je ukinuo x-gha cache, pa se svaki put sve gradilo ispočetka (~23 min). Sada: mapa + actions/cache.
+  VCPKG_BINARY_SOURCES: "clear;files,C:/vcpkg-bincache,readwrite"
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
 
 permissions:
@@ -133,11 +134,21 @@ jobs:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
+      # vcpkg paket bira po ABI hashu, pa je i stariji cache (restore-keys) siguran: nepromijenjeni paketi se uzmu, ostali grade.
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+        with:
+          path: C:/vcpkg-bincache
+          key: vcpkg-bin-x64-windows-static-${{ env.VCPKG_COMMIT_ID }}-${{ hashFiles('vcpkg.json', 'res/vcpkg/**') }}
+          restore-keys: |
+            vcpkg-bin-x64-windows-static-${{ env.VCPKG_COMMIT_ID }}-
+
       - name: Install vcpkg dependencies
         env:
           VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
         shell: bash
         run: |
+          mkdir -p /c/vcpkg-bincache
           if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
             find "${VCPKG_ROOT}/" -name "*.log" | while read -r f; do echo "$f:"; cat "$f"; done
             exit 1
