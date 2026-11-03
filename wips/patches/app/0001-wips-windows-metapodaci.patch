@@ -14,7 +14,7 @@ index 1002586..74fd377 100644
  
  [target.'cfg(target_os="windows")'.build-dependencies]
 diff --git a/flutter/windows/runner/Runner.rc b/flutter/windows/runner/Runner.rc
-index 88d1854..ffc6317 100644
+index 88d1854..377e9c7 100644
 --- a/flutter/windows/runner/Runner.rc
 +++ b/flutter/windows/runner/Runner.rc
 @@ -89,13 +89,13 @@ BEGIN
@@ -26,10 +26,12 @@ index 88d1854..ffc6317 100644
 +            VALUE "CompanyName", "@@WIPS_COMPANY@@" "\0"
 +            VALUE "FileDescription", "@@WIPS_DISPLAY_NAME@@" "\0"
              VALUE "FileVersion", VERSION_AS_STRING "\0"
-             VALUE "InternalName", "rustdesk" "\0"
+-            VALUE "InternalName", "rustdesk" "\0"
++            VALUE "InternalName", "@@WIPS_APP_NAME@@" "\0"
              VALUE "LegalCopyright", "Copyright © 2026 Purslane Tech Pte. Ltd. All rights reserved." "\0"
-             VALUE "OriginalFilename", "rustdesk.exe" "\0"
+-            VALUE "OriginalFilename", "rustdesk.exe" "\0"
 -            VALUE "ProductName", "RustDesk" "\0"
++            VALUE "OriginalFilename", "@@WIPS_APP_NAME@@.exe" "\0"
 +            VALUE "ProductName", "@@WIPS_DISPLAY_NAME@@" "\0"
              VALUE "ProductVersion", VERSION_AS_STRING "\0"
          END

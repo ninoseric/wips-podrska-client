@@ -1,4 +1,4 @@
-# WiPS Udaljena Korisnicka Podrska - Windows x64 build.
+# WiPS Udaljena Korisnicka Podrska - Windows x64 build, korisnička i tehničarska verzija (wips/varijante/).
 # Skraćena kopija job-a build-for-windows-flutter (x86_64) iz upstream
 # .github/workflows/flutter-build.yml (RustDesk 1.5.1). Izostavljeno: arm64, potpisivanje,
 # testovi, MSI, printer driver, update metadata. Potpisivanje se dodaje kad stigne certifikat.
@@ -22,10 +22,6 @@ env:
   FLUTTER_VERSION: "3.24.5"
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
-  OUT_NAME: ${{ (github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && 'rustdesk-upstream' || 'WiPSPodrska' }}
-  # Instalacija registrira servis i prečace na "<APP_NAME>.exe" (src/platform/windows.rs), a samo kopira mapu,
-  # pa glavni exe mora imati ime aplikacije (= WIPS_APP_NAME iz wips/server.env). Inače: exit code 9059.
-  EXE_NAME: ${{ (github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && 'rustdesk' || 'WiPSPodrska' }}
 
 permissions:
   contents: read
@@ -46,6 +42,12 @@ jobs:
   build-windows-x64:
     needs: [generate-bridge, build-topmost-window]
     runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        # Naziv i način rada su ugrađeni u librustdesk.dll, pa svaka verzija ima svoj build.
+        # Bez patcheva (upstream dijagnostika) gradi se samo jedna verzija.
+        varijanta: ${{ fromJSON((github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && '["upstream"]' || '["korisnik", "tehnicar"]') }}
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
@@ -62,7 +64,23 @@ jobs:
       - name: Apply WiPS patches
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.apply_patches }}
         shell: bash
-        run: bash wips/apply-patches.sh
+        run: bash wips/apply-patches.sh ${{ matrix.varijanta }}
+
+      # Instalacija registrira servis i prečace na "<APP_NAME>.exe" (src/platform/windows.rs), a samo kopira mapu,
+      # pa glavni exe mora imati ime aplikacije (WIPS_APP_NAME verzije). Inače: exit code 9059.
+      - name: Exe names
+        shell: bash
+        run: |
+          if [ "${{ matrix.varijanta }}" = upstream ]; then
+            app=rustdesk; out=rustdesk-upstream
+          else
+            app=$(sed -n 's/^WIPS_APP_NAME=//p' "wips/varijante/${{ matrix.varijanta }}.env" | tr -d '\r')
+            out="$app"
+          fi
+          test -n "$app"
+          echo "EXE_NAME=$app" >> "$GITHUB_ENV"
+          echo "OUT_NAME=$out" >> "$GITHUB_ENV"
+          echo "EXE_NAME=$app OUT_NAME=$out"
 
       - name: Restore bridge files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -167,13 +185,13 @@ jobs:
       - name: Upload portable exe
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: wips-podrska-windows-x64
+          name: wips-podrska-${{ matrix.varijanta }}-windows-x64
           path: ./out
           if-no-files-found: error
 
       - name: Upload unpacked build (for debugging)
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: wips-podrska-windows-x64-unpacked
+          name: wips-podrska-${{ matrix.varijanta }}-windows-x64-unpacked
           path: ./rustdesk
           retention-days: 7

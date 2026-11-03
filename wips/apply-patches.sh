@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 # Primjenjuje WiPS patcheve na upstream RustDesk stablo (pokreće se u CI-ju prije builda).
+#   upotreba: wips/apply-patches.sh <varijanta>      (wips/varijante/<varijanta>.env: korisnik, tehnicar)
 #   wips/patches/app/*.patch         -> korijen repozitorija (ne 'rustdesk/': upstream .gitignore ignorira tu riječ)
 #   wips/patches/hbb_common/*.patch  -> libs/hbb_common (submodul)
 #   wips/branding/                   -> ikone (kad postoje)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+VARIJANTA="${1:-}"
+if [ -z "$VARIJANTA" ] || [ ! -f "wips/varijante/$VARIJANTA.env" ]; then
+  echo "upotreba: wips/apply-patches.sh <varijanta>  (varijante: $(cd wips/varijante && ls *.env | sed 's/\.env$//' | tr '\n' ' '))" >&2
+  exit 2
+fi
+echo "verzija: $VARIJANTA"
 
 apply_dir() {
   local dir="$1" target="$2"
@@ -26,15 +34,16 @@ apply_dir() {
 apply_dir wips/patches/app .
 apply_dir wips/patches/hbb_common libs/hbb_common
 
-# zamjena @@WIPS_*@@ oznaka vrijednostima iz wips/server.env
-python3 - <<'EOF'
+# zamjena @@WIPS_*@@ oznaka vrijednostima iz wips/server.env i wips/varijante/<varijanta>.env
+python3 - "wips/varijante/$VARIJANTA.env" <<'EOF'
 import pathlib, re, subprocess, sys
 env = {}
-for line in pathlib.Path("wips/server.env").read_text(encoding="utf-8").splitlines():
-    line = line.strip()
-    if line and not line.startswith("#"):
-        k, v = line.split("=", 1)
-        env[k.strip()] = v.strip()
+for path in ["wips/server.env", sys.argv[1]]:
+    for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            k, v = line.split("=", 1)
+            env[k.strip()] = v.strip()
 files = subprocess.run(["git", "grep", "-l", "@@WIPS_"], capture_output=True, text=True).stdout.split()
 files += ["libs/hbb_common/" + f for f in subprocess.run(
     ["git", "-C", "libs/hbb_common", "grep", "-l", "@@WIPS_"], capture_output=True, text=True).stdout.split()]
