@@ -23,13 +23,13 @@ Vrijednosti su u `wips/varijante/<varijanta>.env`; zajedničke (server, ključ, 
 Nazivi moraju biti različiti: o njima ovise mapa instalacije, Windows servis, postavke i ID.
 
 Korisnička verzija nije sigurnosna granica prema serveru: javni ključ je u svakom klijentu, pa se službeni RustDesk može spojiti preko našeg servera.
-Štite jednokratna lozinka i pristanak korisnika, a na unattended uređajima trajna lozinka, popis pouzdanih ID-ova i zapis spajanja.
+Korisničku verziju štiti pristanak korisnika (svako spajanje treba klik, lozinka se ne koristi) i zapis spajanja. Zato ne može raditi bez nadzora (unattended); za takve uređaje treba tehničarska ili posebna varijanta.
 
 ## Izmjene
 | Patch | Što mijenja |
 |---|---|
 | `hbb_common/0001-wips-naziv-server-kljuc` | naziv aplikacije, ID server, javni ključ, api-server (zapis spajanja) |
-| `hbb_common/0002-wips-ugradjene-opcije` | skriva "Powered by RustDesk" i mrežne postavke (server, proxy, WebSocket), da korisnika nitko ne može nagovoriti na tuđi server; način rada verzije (`conn-type`); u korisničkoj verziji skriva kartice Mreža, Račun i Pisač u Postavkama (`WIPS_SKRIJ_KARTICE`) |
+| `hbb_common/0002-wips-ugradjene-opcije` | skriva "Powered by RustDesk" i mrežne postavke (server, proxy, WebSocket), da korisnika nitko ne može nagovoriti na tuđi server; način rada verzije (`conn-type`); u korisničkoj verziji skriva kartice Mreža, Račun i Pisač u Postavkama (`WIPS_SKRIJ_KARTICE`) i prisiljava spajanje samo uz klik korisnika, bez lozinke (`approve-mode=click`, `WIPS_SAMO_KLIK_OPCIJA`) |
 | `app/0001-wips-windows-metapodaci` | naziv i tvrtka u svojstvima .exe datoteka (program i exe koji se preuzima), izvorni naziv = naziv verzije |
 | `app/0002-wips-o-programu-i-licenca` | "O aplikaciji": izvorni kod, wips.hr, napomena o RustDesku i licenci; instalacija: link na licencu umjesto RustDeskove izjave o privatnosti |
 | `app/0003-wips-hr-prijevod-naziva` | hrvatski tekstovi u kojima se naziv sklanja ("RustDesku" bi postalo "WiPSPodrskau") |
