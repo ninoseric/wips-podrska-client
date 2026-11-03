@@ -10,3 +10,7 @@ cp "$G/icon.png"      flutter/assets/icon.png                        # mala ikon
 cp "$G/logo.png"      flutter/assets/logo.png                        # logo na početnom ekranu, svijetla tema
 cp "$G/logo_dark.png" flutter/assets/logo_dark.png                   # logo na početnom ekranu, tamna tema
 echo "ikone kopirane"
+# Font Manrope (OFL, wips/branding/fonts/OFL.txt) za početni prozor korisničke verzije (patch app/0004, pubspec.yaml)
+mkdir -p flutter/assets/fonts
+cp wips/branding/fonts/Manrope-*.ttf flutter/assets/fonts/
+echo "fontovi kopirani"
