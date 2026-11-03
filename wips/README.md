@@ -34,6 +34,7 @@ Korisnička verzija nije sigurnosna granica prema serveru: javni ključ je u sva
 | `app/0002-wips-o-programu-i-licenca` | "O aplikaciji": izvorni kod, wips.hr, napomena o RustDesku i licenci; instalacija: link na licencu umjesto RustDeskove izjave o privatnosti |
 | `app/0003-wips-hr-prijevod-naziva` | hrvatski tekstovi u kojima se naziv sklanja ("RustDesku" bi postalo "WiPSPodrskau") |
 | `app/0004-wips-izgled-korisnicke-verzije` | novi početni prozor korisničke verzije (`wips_incoming_home.dart`, smjer C "Svijetli Fluent", font Manrope iz `wips/branding/fonts/`); tehničarska verzija ga ne koristi |
+| `app/0005-wips-izgled-prozora-za-odobravanje` | prozor za odobravanje i tijek veze u korisničkoj verziji (`wips_cm_card.dart`, dio `server_page.dart`): zaglavlje s tehničarem i stanjem, napomena prije odobravanja, dozvole kao popis s prekidačima, gumbi u stilu C; logika gumba ostaje upstream (`_CmControlPanel`) |
 
 Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijanta>.env`. Ikone (iste za obje verzije): `python3 -P wips/branding/generiraj-ikone.py` iz `logo-izvor.png` (treba Pillow), rezultat se commita; CI ih samo kopira.
 
