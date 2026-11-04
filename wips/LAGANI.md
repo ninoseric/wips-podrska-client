@@ -134,8 +134,7 @@ pokretanja javila oko 28 s iako je prozor po zapisniku bio prikazan za manje od 
 mjerenje (`lagani: početni prozor prikazan N ms nakon pokretanja procesa`); vanjsku detekciju prozora treba popraviti.
 
 Lokalni razvoj: `wips/lagani/proba` (rustup 1.75, bez vcpkg-a) prevodi i pokreće prave prozore sa zamjenama za jezgru.
- Prozor za odobravanje veze (`--cm`) još nije
-isproban s pravim spajanjem tehničara. Skripte: `mjerenje/posao_win11.ps1` (pokretanje kroz Win+R u virtualki
+ Skripte: `mjerenje/posao_win11.ps1` (pokretanje kroz Win+R u virtualki
 „Windows 11 Pro”, dijeljena mapa je tamo `Z:`), `posao_mjerenje.ps1` i `pokreni-mjerenje-vm.ps1` (preko test agenta).
 
 Zaključak o veličini: Rust jezgra sama je ~35 MB nekomprimirano (webrtc, tokio, reqwest s rustls i native-tls,
@@ -144,3 +143,24 @@ dodavao još ~45 MB. Do 3,5 MB AnyDeska se ne dolazi bez rezanja jezgre; moguće
 (bez promjene koda, procjena 10–20 %), kompresija exe-a (brotli u portable packeru vraća raspakiravanje; UPX
 riskira lažne uzbune antivirusa). Sitnice za kasnije: `CompanyName` prazan i `OriginalFilename = rustdesk.exe`
 (winres metapodaci u patchu 0001 pokrivaju samo Flutter runner).
+
+### Pravo spajanje tehničara (4. 11. 2026.)
+
+Tehničarska verzija 1.5.1 s domaćina (`--connect 121179531`) spojila se na lagani klijent u virtualki
+„Windows 11 Pro”. Tijek (snimke `tijek-*.png` u `Downloads\WiPSPodrska-lagani`):
+
+1. Pri prvom zahtjevu Windows Firewall u virtualki traži dozvolu za program (jezgra sluša na TCP portu). Do klika
+   na „Allow” zahtjev ne stiže do prozora; tehničar čeka i nakon isteka (~3 min) ponovno pokušava. Isto vrijedi i
+   za Flutter verziju bez instalacije; kod instalacije se dodaje pravilo u vatrozid.
+2. CM proces pokrenut je 0,5 s nakon zahtjeva i prikazao „Zahtjev za spajanje – Tehničar (987 654 321) traži pristup
+   vašem računalu” s pravim imenom i ID-om tehničara.
+3. „Dopusti” → tehničar dobio sliku i upravljanje, prozor prešao u „Veza je aktivna” s „Prekini vezu”.
+4. Gašenje tehničara → jezgra javila kraj veze, CM proces se ugasio, početni prozor ostao.
+
+Greška otkrivena i ispravljena (commit nakon 8541d70): tehničarska strana pri uspostavi veze pošalje sintetičko
+puštanje tipke miša na položaju pokazivača; nakon „Dopusti” tamo stoji „Prekini vezu”, pa je veza pucala 1,3 s
+nakon odobrenja. CM prozor sada prihvaća klik samo ako su pritisak i puštanje na istom gumbu.
+
+Odobravanje bez ruku u virtualki: `mjerenje/odobri.ps1` (čeka prozor klase `WiPSLaganiCm`, klikne „Dopusti”).
+Zamka: u PowerShellu `$null` za `string` parametar P/Invokea postaje prazan niz, pa `FindWindowW` ne nađe ništa;
+treba `[NullString]::Value`. Zbog toga je i ranija vanjska detekcija prozora u `izmjeri-start.ps1` bila nepouzdana.
