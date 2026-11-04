@@ -1,11 +1,11 @@
 diff --git a/src/config.rs b/src/config.rs
-index 9ee5cac..90a4c62 100644
+index 9ca0267..93ae915 100644
 --- a/src/config.rs
 +++ b/src/config.rs
-@@ -73,13 +73,25 @@ lazy_static::lazy_static! {
-     static ref USER_DEFAULT_CONFIG: RwLock<(UserDefaultConfig, Instant)> = RwLock::new((UserDefaultConfig::load(), Instant::now()));
-     pub static ref NEW_STORED_PEER_CONFIG: Mutex<HashSet<String>> = Default::default();
-     pub static ref DEFAULT_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
+@@ -77,13 +77,25 @@ lazy_static::lazy_static! {
+         ("key".to_owned(), "@@WIPS_PUB_KEY@@".to_owned()),
+         ("api-server".to_owned(), "https://@@WIPS_HOST@@".to_owned()),
+     ]));
 -    pub static ref OVERWRITE_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
 +    pub static ref OVERWRITE_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from([
 +        ("@@WIPS_SAMO_KLIK_OPCIJA@@".to_owned(), "click".to_owned()),
