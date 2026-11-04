@@ -159,7 +159,8 @@ Tehničarska verzija 1.5.1 s domaćina (`--connect 121179531`) spojila se na lag
 
 Greška otkrivena i ispravljena (commit nakon 8541d70): tehničarska strana pri uspostavi veze pošalje sintetičko
 puštanje tipke miša na položaju pokazivača; nakon „Dopusti” tamo stoji „Prekini vezu”, pa je veza pucala 1,3 s
-nakon odobrenja. CM prozor sada prihvaća klik samo ako su pritisak i puštanje na istom gumbu.
+nakon odobrenja. CM prozor sada prihvaća klik samo ako su pritisak i puštanje na istom gumbu. Provjereno s buildom
+260a864 (CI run 41903689141, 35,3 MB): odobreno s pokazivačem ostavljenim na gumbu, veza ostala aktivna.
 
 Odobravanje bez ruku u virtualki: `mjerenje/odobri.ps1` (čeka prozor klase `WiPSLaganiCm`, klikne „Dopusti”).
 Zamka: u PowerShellu `$null` za `string` parametar P/Invokea postaje prazan niz, pa `FindWindowW` ne nađe ništa;
