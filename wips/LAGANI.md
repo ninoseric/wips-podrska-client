@@ -95,4 +95,21 @@ Još nema: instalacijskog tijeka (`--install`, gumb „Instaliraj”), chata, fo
 
 Zamka pri mjerenju: virtualka „Windows 10 Dev” je **32-bitna**, a build je x64, pa se u njoj ne može pokrenuti. Mogućnosti: virtualka „Windows 11 Pro” (64-bitna, treba dopuštenje i test agent), računalo domaćina, ili dodatni i686 build (vcpkg triplet `x86-windows-static`, kao upstream Sciter build).
 
-Rezultati mjerenja: (upisati nakon prvog builda) veličina exe-a, hladno i toplo pokretanje, usporedba s Flutter verzijom (25 MB exe, oko 80 MB raspakirano).
+### Rezultati prvog builda (CI run 41830945172, 4. 11. 2026.)
+
+| | Lagani prototip (x64, bez hwcodeca) | Korisnička Flutter verzija | Upstream Sciter x86 (`rustdesk-1.5.1-x86-sciter.exe`) |
+|---|---|---|---|
+| Preuzimanje | **34,7 MB**, jedan exe, bez raspakiravanja | 25 MB (brotli), raspakira ~80 MB | 13 MB (brotli, sa sciter.dll) |
+| Na disku nakon pokretanja | 34,7 MB | ~80 MB u `%LOCALAPPDATA%` | ~25 MB |
+| Vanjske ovisnosti | samo sistemski DLL-ovi (user32, gdi32, ws2_32, d3d11, SAS, newdev…) | Flutter engine + 15 plugin DLL-ova | sciter.dll |
+| Ugrađeno | ikona, manifest (PerMonitorV2, vizualni stilovi), verzija s WiPS nazivom | | |
+
+Build je prošao iz prvog pokušaja, bez upozorenja iz `wips/lagani`. Trajanje: vcpkg 23 min (prvi put, bez cachea),
+cargo 27 min. Vrijeme pokretanja još nije izmjereno (vidi zamku s virtualkom gore).
+
+Zaključak o veličini: Rust jezgra sama je ~35 MB nekomprimirano (webrtc, tokio, reqwest s rustls i native-tls,
+kodeci libvpx/aom/opus, i kod za upravljanje tuđim računalom koji korisnička verzija ne koristi). Flutter je na to
+dodavao još ~45 MB. Do 3,5 MB AnyDeska se ne dolazi bez rezanja jezgre; moguće sitnije uštede: `opt-level = "s"`
+(bez promjene koda, procjena 10–20 %), kompresija exe-a (brotli u portable packeru vraća raspakiravanje; UPX
+riskira lažne uzbune antivirusa). Sitnice za kasnije: `CompanyName` prazan i `OriginalFilename = rustdesk.exe`
+(winres metapodaci u patchu 0001 pokrivaju samo Flutter runner).

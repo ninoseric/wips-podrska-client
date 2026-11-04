@@ -2,13 +2,15 @@
 # (klasa prozora WiPSLaganiGlavni, wips/lagani/glavni.rs). Prvo pokretanje je „hladno” (Defender skenira
 # novi exe), sljedeća su „topla”. Radi na bilo kojem 64-bitnom Windowsu (domaćin ili virtualka).
 #
-#   .\izmjeri-start.ps1 -Exe C:\put\WiPSPodrska.exe [-Ponavljanja 3] [-Izlaz rezultat.json]
+#   .\izmjeri-start.ps1 -Exe C:\put\WiPSPodrska.exe [-Ponavljanja 3] [-Izlaz rezultat.json] [-Prikaz 20]
 #
-# Program se nakon svakog mjerenja gasi (zajedno s pomoćnim procesima istog imena).
+# Program se nakon svakog mjerenja gasi (zajedno s pomoćnim procesima istog imena). -Prikaz N ga na kraju
+# još jednom pokrene i ostavi N sekundi otvorenog (za snimku zaslona), pa ugasi.
 param(
     [Parameter(Mandatory = $true)][string]$Exe,
     [int]$Ponavljanja = 3,
-    [string]$Izlaz = ''
+    [string]$Izlaz = '',
+    [int]$Prikaz = 0
 )
 $ErrorActionPreference = 'Stop'
 $klasa = 'WiPSLaganiGlavni'
@@ -52,3 +54,10 @@ $sazetak = [pscustomobject]@{
     vrijeme = (Get-Date -Format 's'); pokretanja = $rezultati
 }
 if ($Izlaz) { $sazetak | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Izlaz -Encoding UTF8; "Zapisano: $Izlaz" }
+
+if ($Prikaz -gt 0) {
+    "Prikaz prozora $Prikaz s (za snimku zaslona)..."
+    $p = Start-Process -FilePath $exe.FullName -PassThru
+    Start-Sleep -Seconds $Prikaz
+    Get-Process -Name $naziv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
