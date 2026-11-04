@@ -122,7 +122,19 @@ kopiran u `%TEMP%`, za Flutter obrisan i `%LOCALAPPDATA%\wipspodrska`), ista vir
 | 3. | 0,21 s | 3,3 s |
 | 4. | | 3,0 s |
 
-Lagani se dakle pokreće 3–4 puta brže hladno i oko 10 puta brže toplo. Prozor za odobravanje veze (`--cm`) još nije
+Lagani se dakle pokreće 3–4 puta brže hladno i oko 10 puta brže toplo.
+
+### Dotjerano sučelje (4. 11. 2026., CI run 41872852056)
+
+Korisnik je izabrao dotjerani Win32 umjesto WebView2. Prozori se sada crtaju Direct2D-om i DirectWrite-om
+(`wips/lagani/d2d.rs`, raspored u `izgled.rs`): font Manrope ugrađen u exe, logo, kartica, čip s ID-om, crtani gumbi
+s hoverom, sve po skici smjera C. Exe: 35,3 MB (+0,6 MB za fontove). Izmjereno u istoj virtualki iz zapisnika
+programa: **hladno 1,38 s, toplo 0,28–0,49 s**, dakle isto kao GDI verzija. Vanjska skripta je u dva od četiri
+pokretanja javila oko 28 s iako je prozor po zapisniku bio prikazan za manje od 1,5 s, pa je mjerodavno interno
+mjerenje (`lagani: početni prozor prikazan N ms nakon pokretanja procesa`); vanjsku detekciju prozora treba popraviti.
+
+Lokalni razvoj: `wips/lagani/proba` (rustup 1.75, bez vcpkg-a) prevodi i pokreće prave prozore sa zamjenama za jezgru.
+ Prozor za odobravanje veze (`--cm`) još nije
 isproban s pravim spajanjem tehničara. Skripte: `mjerenje/posao_win11.ps1` (pokretanje kroz Win+R u virtualki
 „Windows 11 Pro”, dijeljena mapa je tamo `Z:`), `posao_mjerenje.ps1` i `pokreni-mjerenje-vm.ps1` (preko test agenta).
 
