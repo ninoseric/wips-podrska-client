@@ -11,6 +11,7 @@ Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0
 | Brend (ikone, logo) | `wips/branding/` |
 | Primjena izmjena | `wips/apply-patches.sh <varijanta>` |
 | Build | `.github/workflows/wips-build-windows.yml` (ručno ili git tag `v*`), obje verzije paralelno |
+| Build laganog prototipa | `.github/workflows/wips-build-lagani.yml` (ručno): korisnička varijanta bez Fluttera, jedan exe; vidi [`LAGANI.md`](LAGANI.md) |
 | Potpis | Azure Artifact Signing u istom workflowu (postavljanje je opisano u zaglavlju); bez varijable `ARTIFACT_SIGNING_ACCOUNT` build je nepotpisan. Zbog environmenta `release` build se može pokrenuti samo s `main` ili taga `v*` |
 
 **Licenca:** AGPL-3.0, kao upstream (`LICENCE`). Izvorni kod svake objavljene verzije javno je dostupan.
@@ -38,6 +39,7 @@ Korisničku verziju štiti pristanak korisnika (svako spajanje treba klik, lozin
 | `app/0003-wips-hr-prijevod-naziva` | hrvatski tekstovi u kojima se naziv sklanja ("RustDesku" bi postalo "WiPSPodrskau") |
 | `app/0004-wips-izgled-korisnicke-verzije` | novi početni prozor korisničke verzije (`wips_incoming_home.dart`, smjer C "Svijetli Fluent", font Manrope iz `wips/branding/fonts/`); tehničarska verzija ga ne koristi |
 | `app/0005-wips-izgled-prozora-za-odobravanje` | prozor za odobravanje i tijek veze u korisničkoj verziji (`wips_cm_card.dart`, dio `server_page.dart`): zaglavlje s tehničarem i stanjem, napomena prije odobravanja, dozvole kao popis s prekidačima, gumbi u stilu C; logika gumba ostaje upstream (`_CmControlPanel`) |
+| `app/0006-wips-lagano-sucelje` | prototip laganog sučelja (`wips/lagani/`, [`LAGANI.md`](LAGANI.md)): feature `lagani` u `Cargo.toml`, modul preko `#[path]` u `src/lib.rs`, poziv iz `src/main.rs`, manifest i ikona iz `build.rs`; bez feature-a `lagani` ne mijenja ništa (Flutter buildovi ga ne koriste) |
 
 Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijanta>.env`. Ikone (iste za obje verzije): `python3 -P wips/branding/generiraj-ikone.py` iz `logo-izvor.png` (treba Pillow), rezultat se commita; CI ih samo kopira.
 
@@ -47,3 +49,4 @@ Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijant
 - [x] Faza 3: ikone, logo, "O aplikaciji", skrivene mrežne postavke
 - [x] Faza 4: pravi javni ključ s rd.wips.hr, test izvana (3. 11. 2026.)
 - [ ] Faza 5: korisnička i tehničarska verzija, test, pilot
+- [ ] Prototip laganog korisničkog klijenta (ovaj repo): build, mjerenje, odluka ([`LAGANI.md`](LAGANI.md))

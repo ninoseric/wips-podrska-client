@@ -77,3 +77,22 @@ Ukupno oko 4–6 tjedana.
   preskače dok repo nema varijablu `ARTIFACT_SIGNING_ACCOUNT`; Azure federated credential vezan je uz ID-ove
   repozitorija, pa za ovaj repo treba poseban credential ako ovdje zatreba potpis.
 - Privatni repo troši GitHub Actions minute (Windows runneri se naplaćuju dvostruko), za razliku od javnog.
+
+## Prototip (korak 1 plana), stanje 4. 11. 2026.
+
+Napravljeno, čeka prvi CI build i mjerenje:
+
+| Što | Gdje |
+|---|---|
+| Novo sučelje (Win32 + GDI, bez dodatnih ovisnosti) | `wips/lagani/`: `glavni.rs` početni prozor (ID, stanje veze, uputa, „Kopiraj ID”), `cm.rs` prozor za odobravanje veze (`--cm`: Dopusti / Odbij / Prekini vezu), `win32.rs` omotač oko winapi-ja |
+| Uključivanje u build | patch `wips/patches/app/0006-wips-lagano-sucelje.patch`: feature `lagani` u `Cargo.toml` (+ winapi feature-i `wingdi`, `libloaderapi`, `processthreadsapi`, `sysinfoapi`), `#[path = "../wips/lagani/mod.rs"] pub mod lagani` u `src/lib.rs`, poziv `lagani::start` umjesto `ui::start` u `src/main.rs`, ikona i manifest (DPI, vizualni stilovi) iz `build.rs` i za `lagani` |
+| Build | `.github/workflows/wips-build-lagani.yml` (ručno pokretanje; opcija `hwcodec`): korisnička varijanta + svi patchevi, `cargo build --release --features lagani --bin rustdesk`, bez Fluttera, bridgea i TopMostWindow-a; artefakt `wips-podrska-lagani-windows-x64` s `WiPSPodrska.exe` i `VELICINA.txt` |
+| Mjerenje | `wips/lagani/mjerenje/izmjeri-start.ps1 -Exe WiPSPodrska.exe`: veličina i vrijeme do pojave prozora (prvo, hladno pokretanje i sljedeća); program u zapisnik upisuje i vlastito vrijeme od stvaranja procesa do prozora („prikazan N ms nakon pokretanja procesa”) |
+
+Kako radi: `core_main` ostaje isti (server u procesu kad program nije instaliran, `--server` iz servisa kad jest, `--cm` pokreće jezgra pri zahtjevu za vezu). Sciter modul `src/ui` se i dalje prevodi (na njega se oslanjaju `keyboard.rs` i `client/file_trait.rs`), ali se ne poziva; sciter.dll nije potreban jer se učitava tek na poziv. Tekstovi su zasad samo hrvatski, u kodu.
+
+Još nema: instalacijskog tijeka (`--install`, gumb „Instaliraj”), chata, fonta Manrope i tamne teme, prikaza „odspojenog” tehničara, UAC/elevacije iz prozora, mjerenja s WebView2 (odluka Win32 ili WebView2 ovisi o rezultatu mjerenja). Potpis se u ovom workflowu preskače.
+
+Zamka pri mjerenju: virtualka „Windows 10 Dev” je **32-bitna**, a build je x64, pa se u njoj ne može pokrenuti. Mogućnosti: virtualka „Windows 11 Pro” (64-bitna, treba dopuštenje i test agent), računalo domaćina, ili dodatni i686 build (vcpkg triplet `x86-windows-static`, kao upstream Sciter build).
+
+Rezultati mjerenja: (upisati nakon prvog builda) veličina exe-a, hladno i toplo pokretanje, usporedba s Flutter verzijom (25 MB exe, oko 80 MB raspakirano).

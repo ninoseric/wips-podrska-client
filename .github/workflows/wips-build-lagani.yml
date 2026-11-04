@@ -1,0 +1,124 @@
+# WiPS lagani korisnički klijent (prototip, wips/LAGANI.md): Rust jezgra RustDeska bez Fluttera + Win32 prozori
+# iz wips/lagani/. Gradi se s korisničkom varijantom (wips/varijante/korisnik.env) i istim patchevima kao Flutter
+# build, ali bez Fluttera, bridgea i TopMostWindow-a. Rezultat je jedan exe (WiPSPodrska.exe) koji se pokreće bez
+# raspakiravanja. Potpis se u prototipu preskače (postavljanje: wips-build-windows.yml).
+name: WiPS lagani (Windows x64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      hwcodec:
+        description: "Ugradi hardverske kodeke (--features hwcodec,vram); veći exe"
+        type: boolean
+        default: false
+
+env:
+  RUST_VERSION: "1.75"
+  LLVM_VERSION: "15.0.6"
+  # Isti vcpkg cache kao wips-build-windows.yml (ključ ovisi o vcpkg.json i res/vcpkg/**).
+  VCPKG_BINARY_SOURCES: "clear;files,C:/vcpkg-bincache,readwrite"
+  VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+
+permissions:
+  contents: read
+
+jobs:
+  build-lagani-x64:
+    runs-on: windows-2022
+    steps:
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Checkout source code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          submodules: recursive
+
+      - name: Apply WiPS patches (korisnik)
+        shell: bash
+        run: bash wips/apply-patches.sh korisnik
+
+      # Instalacija i servis traže exe s imenom aplikacije (vidi wips-build-windows.yml).
+      - name: Exe name
+        shell: bash
+        run: |
+          app=$(sed -n 's/^WIPS_APP_NAME=//p' wips/varijante/korisnik.env | tr -d '\r')
+          test -n "$app"
+          echo "EXE_NAME=$app" >> "$GITHUB_ENV"
+          echo "EXE_NAME=$app"
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
+        with:
+          version: ${{ env.LLVM_VERSION }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-pc-windows-msvc
+          components: "rustfmt"
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          prefix-key: windows-2022-lagani
+
+      - name: Setup vcpkg with Github Actions binary cache
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
+        with:
+          vcpkgDirectory: C:\vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+        with:
+          path: C:/vcpkg-bincache
+          key: vcpkg-bin-x64-windows-static-${{ env.VCPKG_COMMIT_ID }}-${{ hashFiles('vcpkg.json', 'res/vcpkg/**') }}
+          restore-keys: |
+            vcpkg-bin-x64-windows-static-${{ env.VCPKG_COMMIT_ID }}-
+
+      - name: Install vcpkg dependencies
+        env:
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
+        shell: bash
+        run: |
+          mkdir -p /c/vcpkg-bincache
+          if ! $VCPKG_ROOT/vcpkg install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r f; do echo "$f:"; cat "$f"; done
+            exit 1
+          fi
+
+      # Samo bin "rustdesk" (src/main.rs): bez --bin cargo bi gradio i librustdesk.dll, koji ovdje nije potreban.
+      # --locked: nove ovisnosti nema (winapi dobiva samo dodatne feature-e), pa Cargo.lock ostaje isti.
+      - name: Build
+        shell: bash
+        run: |
+          features=lagani
+          if [ "${{ inputs.hwcodec }}" = "true" ]; then features="$features,hwcodec,vram"; fi
+          echo "features: $features"
+          cargo build --locked --release --features "$features" --bin rustdesk
+          mkdir -p out
+          cp target/release/rustdesk.exe "out/${EXE_NAME}.exe"
+
+      - name: Veličina i ovisnosti exe-a
+        shell: pwsh
+        run: |
+          $exe = Get-Item "out\$env:EXE_NAME.exe"
+          "{0}: {1:N1} MB ({2:N0} B)" -f $exe.Name, ($exe.Length / 1MB), $exe.Length
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
+          if ($dumpbin) { & $dumpbin.FullName /dependents $exe.FullName | Select-String -Pattern '\.dll' }
+          (Get-Item "out\$env:EXE_NAME.exe").VersionInfo | Format-List ProductName, FileDescription, FileVersion, CompanyName
+          (Get-ChildItem out | ForEach-Object { "{0} {1}" -f $_.Length, $_.Name }) | Set-Content out\VELICINA.txt
+
+      - name: Upload exe
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wips-podrska-lagani-windows-x64${{ inputs.hwcodec && '-hwcodec' || '' }}
+          path: ./out
+          if-no-files-found: error

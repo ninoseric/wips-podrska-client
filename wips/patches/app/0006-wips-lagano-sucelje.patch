@@ -1,0 +1,75 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 1002586..2923bf2 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -26,6 +26,8 @@ use_samplerate = ["samplerate", "libsamplerate-sys"]
+ use_rubato = ["rubato"]
+ use_dasp = ["dasp"]
+ flutter = ["flutter_rust_bridge"]
++# WiPS: lagano Win32 sučelje korisničke verzije (wips/lagani/) umjesto Sciter/Flutter sučelja; samo Windows.
++lagani = []
+ default = ["use_dasp"]
+ hwcodec = ["scrap/hwcodec"]
+ vram = ["scrap/vram"]
+@@ -125,6 +127,10 @@ winapi = { version = "0.3", features = [
+     "cfgmgr32",
+     "ioapiset",
+     "winspool",
++    "wingdi",
++    "libloaderapi",
++    "processthreadsapi",
++    "sysinfoapi",
+ ] }
+ windows = { version = "0.61", features = [
+     "Win32",
+diff --git a/build.rs b/build.rs
+index 30e486a..a9ee844 100644
+--- a/build.rs
++++ b/build.rs
+@@ -27,7 +27,7 @@ fn build_mac() {
+     println!("cargo:rerun-if-changed={}", file);
+ }
+ 
+-#[cfg(all(windows, feature = "inline"))]
++#[cfg(all(windows, any(feature = "inline", feature = "lagani")))]
+ fn build_manifest() {
+     use std::io::Write;
+     if std::env::var("PROFILE").unwrap() == "release" {
+@@ -93,7 +93,7 @@ fn install_android_deps() {
+ fn main() {
+     hbb_common::gen_version();
+     install_android_deps();
+-    #[cfg(all(windows, feature = "inline"))]
++    #[cfg(all(windows, any(feature = "inline", feature = "lagani")))]
+     build_manifest();
+     #[cfg(windows)]
+     build_windows();
+diff --git a/src/lib.rs b/src/lib.rs
+index f6e48a1..0e035e6 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -29,6 +29,9 @@ pub mod ipc;
+     feature = "flutter"
+ )))]
+ pub mod ui;
++#[cfg(feature = "lagani")]
++#[path = "../wips/lagani/mod.rs"]
++pub mod lagani;
+ pub(crate) mod update_metadata;
+ pub(crate) mod update_hash;
+ #[cfg(target_os = "macos")]
+diff --git a/src/main.rs b/src/main.rs
+index 7cdbcb7..7adf948 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -30,7 +30,10 @@ fn main() -> std::process::ExitCode {
+     // as a non-zero process exit status for CLI callers.
+     let exit_code = match crate::core_main::core_main() {
+         Some(crate::core_main::CoreMainAction::StartUi(mut args)) => {
++            #[cfg(not(feature = "lagani"))]
+             ui::start(&mut args);
++            #[cfg(feature = "lagani")]
++            lagani::start(&mut args);
+             std::process::ExitCode::SUCCESS
+         }
+         Some(crate::core_main::CoreMainAction::ExitFailure(err)) => {
