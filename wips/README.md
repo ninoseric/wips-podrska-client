@@ -9,6 +9,7 @@ Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0
 | Brend (ikone, logo) | `wips/branding/` |
 | Primjena izmjena | `wips/apply-patches.sh <varijanta>` |
 | Build | `.github/workflows/wips-build-windows.yml` (ručno ili git tag `v*`), obje verzije paralelno |
+| Potpis | Azure Artifact Signing u istom workflowu (postavljanje je opisano u zaglavlju); bez varijable `ARTIFACT_SIGNING_ACCOUNT` build je nepotpisan. Zbog environmenta `release` build se može pokrenuti samo s `main` ili taga `v*` |
 
 **Licenca:** AGPL-3.0, kao upstream (`LICENCE`). Izvorni kod svake objavljene verzije javno je dostupan.
 

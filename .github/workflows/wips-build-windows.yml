@@ -4,10 +4,14 @@
 # printer driver, update metadata.
 #
 # Potpisivanje (Azure Artifact Signing, isti account kao WiPS.ERP; ADR 0005) se preskače dok repo nema
-# varijablu ARTIFACT_SIGNING_ACCOUNT. Kao upstream: potpišu se datoteke u buildu prije pakiranja, pa
-# instalacijski exe. Jednokratno postavljanje:
-#   1. Na istoj App registration kao za WiPS.ERP dodati Federated credential → GitHub Actions:
-#      organizacija ninoseric, repo wips-podrska-client, entity type Environment, naziv „release”.
+# varijablu ARTIFACT_SIGNING_ACCOUNT, a nepromijenjeni upstream (dijagnostika) se nikad ne potpisuje.
+# Kao upstream: potpišu se datoteke u buildu prije pakiranja, pa instalacijski exe. Jednokratno postavljanje:
+#   1. Na istoj App registration kao za WiPS.ERP dodati Federated credential sa subjectom
+#      repo:ninoseric@62889782/wips-podrska-client@1442756221:environment:release
+#      (issuer https://token.actions.githubusercontent.com, audience api://AzureADTokenExchange).
+#      Repo je nastao nakon 15. 7. 2026., pa GitHub u subjectu šalje i ID vlasnika i repozitorija; oblik
+#      bez ID-ova (repo:ninoseric/wips-podrska-client:...) ne odgovara. Prijenos repa u drugu organizaciju
+#      mijenja vlasnika u subjectu, pa tada credential treba ažurirati.
 #   2. Settings → Secrets and variables → Actions → Variables (to nisu tajne): AZURE_CLIENT_ID,
 #      AZURE_TENANT_ID, ARTIFACT_SIGNING_ENDPOINT, ARTIFACT_SIGNING_ACCOUNT, ARTIFACT_SIGNING_PROFILE.
 name: WiPS build (Windows x64)
@@ -51,7 +55,7 @@ jobs:
   build-windows-x64:
     needs: [generate-bridge, build-topmost-window]
     runs-on: windows-2022
-    environment: release # uz ovaj environment vezan je federated credential u Azureu
+    environment: release # uz njega je vezan federated credential u Azureu; dopušta samo main i tagove v*
     permissions:
       contents: read
       id-token: write # OIDC prijava u Azure
@@ -62,7 +66,8 @@ jobs:
         # Bez patcheva (upstream dijagnostika) gradi se samo jedna verzija.
         varijanta: ${{ fromJSON((github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && '["upstream"]' || '["korisnik", "tehnicar"]') }}
     env:
-      POTPIS: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' }}
+      # Upstream build nije naš program, pa na njemu ne smije biti potpis WiPS-a.
+      POTPIS: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' && matrix.varijanta != 'upstream' }}
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
