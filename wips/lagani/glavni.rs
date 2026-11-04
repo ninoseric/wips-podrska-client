@@ -1,74 +1,50 @@
-// Početni prozor korisničke verzije: ID, stanje veze sa serverom, uputa za poziv podrške, gumb za
-// kopiranje ID-a. Izgled slijedi smjer C „Svijetli Fluent” iz Flutter verzije (patch app/0004),
-// nacrtan GDI-jem. ID i stanje dolaze iz jezgre preko IPC-a (ui_interface::get_connect_status).
+// Početni prozor korisničke verzije: logo, stanje veze, ID, „Kopiraj ID”, uputa za poziv podrške.
+// Izgled je u izgled.rs (smjer C „Svijetli Fluent”), crtanje u d2d.rs; ovdje su prozor, miš i timeri.
+// ID i stanje dolaze iz jezgre preko IPC-a (ui_interface::get_connect_status).
 use std::cell::RefCell;
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 use std::sync::Mutex;
 
 use hbb_common::log;
-use winapi::shared::minwindef::{LOWORD, LPARAM, LRESULT, UINT, WPARAM};
-use winapi::shared::windef::{HBRUSH, HDC, HWND};
-use winapi::um::wingdi::{CreateSolidBrush, DeleteObject, FW_BOLD, FW_NORMAL, FW_SEMIBOLD};
+use winapi::shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM};
+use winapi::shared::windef::HWND;
 use winapi::um::winuser::{
-    BeginPaint, DefWindowProcW, EndPaint, FindWindowW, KillTimer, PostQuitMessage, SetTimer,
-    DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, PAINTSTRUCT,
-    WM_COMMAND, WM_CREATE, WM_CTLCOLORBTN, WM_DESTROY, WM_PAINT, WM_TIMER,
+    BeginPaint, DefWindowProcW, EndPaint, FindWindowW, KillTimer, LoadCursorW, PostQuitMessage,
+    SetCursor, SetTimer, IDC_HAND, PAINTSTRUCT, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_LBUTTONUP,
+    WM_MOUSELEAVE, WM_MOUSEMOVE, WM_PAINT, WM_SETCURSOR, WM_SIZE, WM_TIMER,
 };
 
-use super::win32::{self, px, rgb, Font, WindowSpec};
+use super::d2d::{inside, Gfx};
+use super::izgled::{self, Fonts};
+use super::win32::{self, WindowSpec};
 
 const CLASS: &str = "WiPSLaganiGlavni";
 const TITLE: &str = "WiPS udaljena podrška";
-const WIDTH: i32 = 340;
-const HEIGHT: i32 = 336;
-const TIP: &str = "Nazovite podršku na 01/61 76 166 i pročitajte ID tehničaru. \
-                   Spajanje uvijek morate odobriti vi.";
-const FOOTER: &str = "WiPS Systems  ·  01/61 76 166  ·  wips.hr";
 
-// Paleta smjera C (svijetla tema), kao u wips_incoming_home.dart.
-const BG: u32 = rgb(0xFA, 0xFA, 0xFB);
-const CARD: u32 = rgb(0xFF, 0xFF, 0xFF);
-const BORDER: u32 = rgb(0xE5, 0xE7, 0xEB);
-const TEXT: u32 = rgb(0x11, 0x18, 0x27);
-const MUTED: u32 = rgb(0x4B, 0x55, 0x63);
-const OK: u32 = rgb(0x15, 0x80, 0x3D);
-const WAIT: u32 = rgb(0xB4, 0x53, 0x09);
-const ERR: u32 = rgb(0xB9, 0x1C, 0x1C);
-
-const BTN_COPY: u16 = 1001;
 const TIMER_STATUS: usize = 1;
 const TIMER_COPIED: usize = 2;
 
 /// ID dohvaćen od jezgre (ipc::get_id) u pozadinskoj niti, dok ga nit stanja još nije javila.
 static IPC_ID: Mutex<String> = Mutex::new(String::new());
 
-struct Fonts {
-    title: Font,
-    label: Font,
-    id: Font,
-    body: Font,
-    small: Font,
-}
-
 struct Ui {
-    scale: f32,
+    gfx: Gfx,
     fonts: Fonts,
-    bg_brush: HBRUSH,
-    btn_copy: HWND,
     id: String,
     status: i32,
-}
-
-impl Drop for Ui {
-    fn drop(&mut self) {
-        unsafe {
-            DeleteObject(self.bg_brush as _);
-        }
-    }
+    copied: bool,
+    hover: bool,
 }
 
 thread_local! {
     static UI: RefCell<Option<Ui>> = RefCell::new(None);
+}
+
+fn with_ui<R>(f: impl FnOnce(&mut Ui) -> R) -> Option<R> {
+    UI.with(|c| match c.try_borrow_mut() {
+        Ok(mut g) => g.as_mut().map(f),
+        Err(_) => None,
+    })
 }
 
 pub fn run() {
@@ -89,15 +65,14 @@ pub fn run() {
             *v = id;
         }
     });
-    let scale = win32::scale();
     let hwnd = unsafe {
         win32::create_window(&WindowSpec {
             class: CLASS,
             title: TITLE,
-            width: WIDTH,
-            height: HEIGHT,
-            scale,
-            background: BG,
+            width: izgled::GLAVNI_W,
+            height: izgled::GLAVNI_H,
+            scale: win32::scale(),
+            background: izgled::BG.0,
             topmost: false,
             wndproc: Some(wndproc),
         })
@@ -129,21 +104,49 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
             on_paint(hwnd);
             0
         }
-        WM_COMMAND => {
-            if LOWORD(wparam as u32) == BTN_COPY {
+        WM_ERASEBKGND => 1,
+        WM_SIZE => {
+            with_ui(|ui| ui.gfx.resize());
+            0
+        }
+        WM_MOUSEMOVE => {
+            let changed = with_ui(|ui| {
+                let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
+                let h = inside(&izgled::glavni_copy_rect(), x, y);
+                let changed = h != ui.hover;
+                ui.hover = h;
+                changed
+            })
+            .unwrap_or(false);
+            win32::track_mouse_leave(hwnd);
+            if changed {
+                win32::redraw(hwnd);
+            }
+            0
+        }
+        WM_MOUSELEAVE => {
+            if with_ui(|ui| std::mem::replace(&mut ui.hover, false)).unwrap_or(false) {
+                win32::redraw(hwnd);
+            }
+            0
+        }
+        WM_LBUTTONUP => {
+            let hit = with_ui(|ui| {
+                let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
+                inside(&izgled::glavni_copy_rect(), x, y)
+            })
+            .unwrap_or(false);
+            if hit {
                 on_copy(hwnd);
             }
             0
         }
-        WM_CTLCOLORBTN => {
-            let brush = UI.with(|c| {
-                c.try_borrow()
-                    .ok()
-                    .and_then(|g| g.as_ref().map(|u| u.bg_brush as LRESULT))
-            });
-            match brush {
-                Some(b) => b,
-                None => DefWindowProcW(hwnd, msg, wparam, lparam),
+        WM_SETCURSOR => {
+            if with_ui(|ui| ui.hover).unwrap_or(false) {
+                SetCursor(LoadCursorW(null_mut(), IDC_HAND));
+                1
+            } else {
+                DefWindowProcW(hwnd, msg, wparam, lparam)
             }
         }
         WM_DESTROY => {
@@ -161,23 +164,27 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
 }
 
 unsafe fn on_create(hwnd: HWND) {
-    let scale = win32::scale();
-    let fonts = Fonts {
-        title: Font::new("Segoe UI", 14.0, FW_SEMIBOLD, scale),
-        label: Font::new("Segoe UI", 9.0, FW_SEMIBOLD, scale),
-        id: Font::new("Consolas", 24.0, FW_BOLD, scale),
-        body: Font::new("Segoe UI", 9.5, FW_NORMAL, scale),
-        small: Font::new("Segoe UI", 9.0, FW_NORMAL, scale),
+    let gfx = match Gfx::new(windows::Win32::Foundation::HWND(hwnd as *mut _)) {
+        Ok(g) => g,
+        Err(e) => {
+            log::error!("lagani: Direct2D nije dostupan: {}", e);
+            return;
+        }
     };
-    let rc = win32::rect(px(38, scale), px(232, scale), px(158, scale), px(264, scale));
-    let btn_copy = win32::create_button(hwnd, BTN_COPY, "Kopiraj ID", &rc, true, &fonts.body);
+    let fonts = match Fonts::new(&gfx) {
+        Ok(f) => f,
+        Err(e) => {
+            log::error!("lagani: fontovi nisu stvoreni: {}", e);
+            return;
+        }
+    };
     let ui = Ui {
-        scale,
+        gfx,
         fonts,
-        bg_brush: CreateSolidBrush(BG),
-        btn_copy,
         id: String::new(),
         status: 0,
+        copied: false,
+        hover: false,
     };
     UI.with(|c| {
         if let Ok(mut g) = c.try_borrow_mut() {
@@ -191,10 +198,8 @@ unsafe fn on_create(hwnd: HWND) {
 unsafe fn on_timer(hwnd: HWND, id: WPARAM) {
     if id == TIMER_COPIED {
         KillTimer(hwnd, TIMER_COPIED);
-        let btn = UI.with(|c| c.try_borrow().ok().and_then(|g| g.as_ref().map(|u| u.btn_copy)));
-        if let Some(btn) = btn {
-            win32::set_text(btn, "Kopiraj ID");
-        }
+        with_ui(|ui| ui.copied = false);
+        win32::redraw(hwnd);
         return;
     }
     let st = crate::ui_interface::get_connect_status();
@@ -204,29 +209,20 @@ unsafe fn on_timer(hwnd: HWND, id: WPARAM) {
             new_id = v.clone();
         }
     }
-    let changed = UI.with(|c| match c.try_borrow_mut() {
-        Ok(mut g) => match g.as_mut() {
-            Some(ui) => {
-                let changed = ui.id != new_id || ui.status != st.status_num;
-                ui.id = new_id;
-                ui.status = st.status_num;
-                changed
-            }
-            None => false,
-        },
-        Err(_) => false,
-    });
+    let changed = with_ui(|ui| {
+        let changed = ui.id != new_id || ui.status != st.status_num;
+        ui.id = new_id;
+        ui.status = st.status_num;
+        changed
+    })
+    .unwrap_or(false);
     if changed {
         win32::redraw(hwnd);
     }
 }
 
 unsafe fn on_copy(hwnd: HWND) {
-    let Some((id, btn)) = UI.with(|c| {
-        c.try_borrow()
-            .ok()
-            .and_then(|g| g.as_ref().map(|u| (u.id.clone(), u.btn_copy)))
-    }) else {
+    let Some(id) = with_ui(|ui| ui.id.clone()) else {
         return;
     };
     if id.is_empty() {
@@ -234,7 +230,8 @@ unsafe fn on_copy(hwnd: HWND) {
     }
     match arboard::Clipboard::new().and_then(|mut c| c.set_text(id)) {
         Ok(()) => {
-            win32::set_text(btn, "Kopirano");
+            with_ui(|ui| ui.copied = true);
+            win32::redraw(hwnd);
             SetTimer(hwnd, TIMER_COPIED, 1500, None);
         }
         Err(e) => log::error!("lagani: kopiranje ID-a nije uspjelo: {}", e),
@@ -243,85 +240,26 @@ unsafe fn on_copy(hwnd: HWND) {
 
 unsafe fn on_paint(hwnd: HWND) {
     let mut ps: PAINTSTRUCT = std::mem::zeroed();
-    let hdc = BeginPaint(hwnd, &mut ps);
-    UI.with(|c| {
-        if let Ok(g) = c.try_borrow() {
-            if let Some(ui) = g.as_ref() {
-                paint(hdc, hwnd, ui);
-            }
+    BeginPaint(hwnd, &mut ps);
+    with_ui(|ui| {
+        let Ui {
+            gfx,
+            fonts,
+            id,
+            status,
+            copied,
+            hover,
+        } = ui;
+        let s = izgled::Glavni {
+            id,
+            status: *status,
+            version: crate::VERSION,
+            copied: *copied,
+            hover_copy: *hover,
+        };
+        if let Err(e) = gfx.paint(izgled::BG, |c| izgled::crtaj_glavni(c, fonts, &s)) {
+            log::error!("lagani: crtanje nije uspjelo: {}", e);
         }
     });
     EndPaint(hwnd, &ps);
-}
-
-unsafe fn paint(hdc: HDC, hwnd: HWND, ui: &Ui) {
-    let s = ui.scale;
-    let p = |v: i32| px(v, s);
-    let line = DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX;
-
-    let client = win32::client_rect(hwnd);
-    win32::fill_rect(hdc, &client, BG);
-
-    let mut rc = win32::rect(p(20), p(14), p(320), p(40));
-    win32::draw_text(hdc, TITLE, &mut rc, &ui.fonts.title, TEXT, line);
-
-    let card = win32::rect(p(20), p(50), p(320), p(282));
-    win32::card(hdc, &card, CARD, BORDER, p(10));
-
-    let mut rc = win32::rect(p(38), p(66), p(302), p(82));
-    win32::draw_text(hdc, "VAŠ ID", &mut rc, &ui.fonts.label, MUTED, line);
-
-    let id_text = if ui.id.is_empty() {
-        "— — —".to_owned()
-    } else {
-        format_id(&ui.id)
-    };
-    let mut rc = win32::rect(p(38), p(84), p(302), p(122));
-    win32::draw_text(hdc, &id_text, &mut rc, &ui.fonts.id, TEXT, line);
-
-    let (color, text) = status_text(ui.status);
-    win32::dot(hdc, p(43), p(139), p(4), color);
-    let mut rc = win32::rect(p(52), p(130), p(302), p(148));
-    win32::draw_text(hdc, text, &mut rc, &ui.fonts.body, MUTED, line);
-
-    win32::fill_rect(hdc, &win32::rect(p(38), p(158), p(302), p(159)), BORDER);
-
-    let mut rc = win32::rect(p(38), p(168), p(302), p(222));
-    win32::draw_text(
-        hdc,
-        TIP,
-        &mut rc,
-        &ui.fonts.body,
-        MUTED,
-        DT_LEFT | DT_WORDBREAK | DT_NOPREFIX,
-    );
-
-    let mut rc = win32::rect(p(20), p(294), p(320), p(316));
-    win32::draw_text(
-        hdc,
-        FOOTER,
-        &mut rc,
-        &ui.fonts.small,
-        MUTED,
-        DT_CENTER | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX,
-    );
-}
-
-fn status_text(status: i32) -> (u32, &'static str) {
-    if status > 0 {
-        (OK, "Povezano sa serverom WiPS")
-    } else if status == 0 {
-        (WAIT, "Povezivanje sa serverom…")
-    } else {
-        (ERR, "Podrška trenutno nije dostupna")
-    }
-}
-
-/// „123456789” → „123 456 789”; ostale ID-ove ostavlja kakvi jesu.
-fn format_id(id: &str) -> String {
-    if id.len() == 9 && id.chars().all(|c| c.is_ascii_digit()) {
-        format!("{} {} {}", &id[0..3], &id[3..6], &id[6..9])
-    } else {
-        id.to_owned()
-    }
 }

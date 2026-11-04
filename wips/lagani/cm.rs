@@ -1,39 +1,27 @@
 // Prozor za odobravanje veze (proces `--cm`, connection manager): tehničar traži pristup →
 // „Dopusti” / „Odbij”; za vrijeme veze „Prekini vezu”. Logika (IPC sa serverom, odobravanje,
-// prekid) je RustDeskova (ui_cm_interface); ovdje je samo prozor. Proces završava kad nema veza.
+// prekid) je RustDeskova (ui_cm_interface); ovdje su prozor, miš i timer. Proces završava kad nema veza.
 use std::cell::RefCell;
+use std::ptr::null_mut;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Mutex;
 
 use hbb_common::log;
-use winapi::shared::minwindef::{LOWORD, LPARAM, LRESULT, UINT, WPARAM};
-use winapi::shared::windef::{HBRUSH, HDC, HWND};
-use winapi::um::wingdi::{CreateSolidBrush, DeleteObject, FW_NORMAL, FW_SEMIBOLD};
+use winapi::shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM};
+use winapi::shared::windef::HWND;
 use winapi::um::winuser::{
-    BeginPaint, DefWindowProcW, EndPaint, KillTimer, PostQuitMessage, SetTimer, ShowWindow,
-    DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK, PAINTSTRUCT, SW_HIDE, SW_SHOW,
-    WM_CLOSE, WM_COMMAND, WM_CREATE, WM_CTLCOLORBTN, WM_DESTROY, WM_PAINT, WM_TIMER,
+    BeginPaint, DefWindowProcW, EndPaint, KillTimer, LoadCursorW, PostQuitMessage, SetCursor,
+    SetTimer, IDC_HAND, PAINTSTRUCT, WM_CLOSE, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_LBUTTONUP,
+    WM_MOUSELEAVE, WM_MOUSEMOVE, WM_PAINT, WM_SETCURSOR, WM_SIZE, WM_TIMER,
 };
 
-use super::win32::{self, px, rgb, Font, WindowSpec};
+use super::d2d::Gfx;
+use super::izgled::{self, CmButton, Fonts};
+use super::win32::{self, WindowSpec};
 use crate::ui_cm_interface::{self, Client, ConnectionManager, InvokeUiCM};
 
 const CLASS: &str = "WiPSLaganiCm";
 const TITLE: &str = "WiPS udaljena podrška";
-const WIDTH: i32 = 380;
-const HEIGHT: i32 = 236;
-const TIP_REQUEST: &str = "Odobrite samo ako ste upravo razgovarali s podrškom WiPS. \
-                           Vezu možete prekinuti u bilo kojem trenutku.";
-const TIP_ACTIVE: &str = "Tehničar vidi vaš zaslon i upravlja mišem i tipkovnicom. \
-                          Vezu možete prekinuti u bilo kojem trenutku.";
-
-const BG: u32 = rgb(0xFA, 0xFA, 0xFB);
-const TEXT: u32 = rgb(0x11, 0x18, 0x27);
-const MUTED: u32 = rgb(0x4B, 0x55, 0x63);
-
-const BTN_ALLOW: u16 = 2001;
-const BTN_DENY: u16 = 2002;
-const BTN_DISCONNECT: u16 = 2003;
 const TIMER_REFRESH: usize = 1;
 
 #[derive(Clone, PartialEq)]
@@ -106,46 +94,46 @@ impl InvokeUiCM for Handler {
     fn file_transfer_log(&self, _action: &str, _log: &str) {}
 }
 
-struct Fonts {
-    title: Font,
-    body: Font,
-    small: Font,
-}
-
 struct Ui {
-    scale: f32,
+    gfx: Gfx,
     fonts: Fonts,
-    bg_brush: HBRUSH,
-    btn_allow: HWND,
-    btn_deny: HWND,
-    btn_disconnect: HWND,
     shown: Option<Peer>,
-}
-
-impl Drop for Ui {
-    fn drop(&mut self) {
-        unsafe {
-            DeleteObject(self.bg_brush as _);
-        }
-    }
+    hover: Option<CmButton>,
 }
 
 thread_local! {
     static UI: RefCell<Option<Ui>> = RefCell::new(None);
 }
 
+fn with_ui<R>(f: impl FnOnce(&mut Ui) -> R) -> Option<R> {
+    UI.with(|c| match c.try_borrow_mut() {
+        Ok(mut g) => g.as_mut().map(f),
+        Err(_) => None,
+    })
+}
+
+fn state(peer: &Option<Peer>, hover: Option<CmButton>) -> izgled::Cm<'_> {
+    izgled::Cm {
+        peer: peer.as_ref().map(|p| izgled::CmPeer {
+            name: &p.name,
+            peer_id: &p.peer_id,
+            authorized: p.authorized,
+        }),
+        hover,
+    }
+}
+
 pub fn run() {
     let cm = ConnectionManager { ui_handler: Handler };
     std::thread::spawn(move || ui_cm_interface::start_ipc(cm));
-    let scale = win32::scale();
     let hwnd = unsafe {
         win32::create_window(&WindowSpec {
             class: CLASS,
             title: TITLE,
-            width: WIDTH,
-            height: HEIGHT,
-            scale,
-            background: BG,
+            width: izgled::CM_W,
+            height: izgled::CM_H,
+            scale: win32::scale(),
+            background: izgled::BG.0,
             topmost: true,
             wndproc: Some(wndproc),
         })
@@ -183,23 +171,51 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
             on_paint(hwnd);
             0
         }
-        WM_COMMAND => {
-            match LOWORD(wparam as u32) {
-                BTN_ALLOW => on_allow(),
-                BTN_DENY | BTN_DISCONNECT => on_close_peer(),
-                _ => {}
+        WM_ERASEBKGND => 1,
+        WM_SIZE => {
+            with_ui(|ui| ui.gfx.resize());
+            0
+        }
+        WM_MOUSEMOVE => {
+            let changed = with_ui(|ui| {
+                let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
+                let h = izgled::cm_hit(&state(&ui.shown, None), x, y);
+                let changed = h != ui.hover;
+                ui.hover = h;
+                changed
+            })
+            .unwrap_or(false);
+            win32::track_mouse_leave(hwnd);
+            if changed {
+                win32::redraw(hwnd);
             }
             0
         }
-        WM_CTLCOLORBTN => {
-            let brush = UI.with(|c| {
-                c.try_borrow()
-                    .ok()
-                    .and_then(|g| g.as_ref().map(|u| u.bg_brush as LRESULT))
-            });
-            match brush {
-                Some(b) => b,
-                None => DefWindowProcW(hwnd, msg, wparam, lparam),
+        WM_MOUSELEAVE => {
+            if with_ui(|ui| ui.hover.take().is_some()).unwrap_or(false) {
+                win32::redraw(hwnd);
+            }
+            0
+        }
+        WM_LBUTTONUP => {
+            let hit = with_ui(|ui| {
+                let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
+                izgled::cm_hit(&state(&ui.shown, None), x, y)
+            })
+            .flatten();
+            match hit {
+                Some(CmButton::Allow) => on_allow(),
+                Some(CmButton::Deny) | Some(CmButton::Disconnect) => on_close_peer(),
+                None => {}
+            }
+            0
+        }
+        WM_SETCURSOR => {
+            if with_ui(|ui| ui.hover.is_some()).unwrap_or(false) {
+                SetCursor(LoadCursorW(null_mut(), IDC_HAND));
+                1
+            } else {
+                DefWindowProcW(hwnd, msg, wparam, lparam)
             }
         }
         WM_CLOSE => {
@@ -228,42 +244,28 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
 }
 
 unsafe fn on_create(hwnd: HWND) {
-    let scale = win32::scale();
-    let fonts = Fonts {
-        title: Font::new("Segoe UI", 14.0, FW_SEMIBOLD, scale),
-        body: Font::new("Segoe UI", 10.0, FW_NORMAL, scale),
-        small: Font::new("Segoe UI", 9.0, FW_NORMAL, scale),
+    let gfx = match Gfx::new(windows::Win32::Foundation::HWND(hwnd as *mut _)) {
+        Ok(g) => g,
+        Err(e) => {
+            log::error!("lagani cm: Direct2D nije dostupan: {}", e);
+            return;
+        }
     };
-    let r = |l: i32, t: i32, rt: i32, b: i32| {
-        win32::rect(px(l, scale), px(t, scale), px(rt, scale), px(b, scale))
-    };
-    let btn_allow =
-        win32::create_button(hwnd, BTN_ALLOW, "Dopusti", &r(24, 180, 144, 212), true, &fonts.body);
-    let btn_deny =
-        win32::create_button(hwnd, BTN_DENY, "Odbij", &r(156, 180, 276, 212), false, &fonts.body);
-    let btn_disconnect = win32::create_button(
-        hwnd,
-        BTN_DISCONNECT,
-        "Prekini vezu",
-        &r(24, 180, 164, 212),
-        false,
-        &fonts.body,
-    );
-    ShowWindow(btn_allow, SW_HIDE);
-    ShowWindow(btn_deny, SW_HIDE);
-    ShowWindow(btn_disconnect, SW_HIDE);
-    let ui = Ui {
-        scale,
-        fonts,
-        bg_brush: CreateSolidBrush(BG),
-        btn_allow,
-        btn_deny,
-        btn_disconnect,
-        shown: None,
+    let fonts = match Fonts::new(&gfx) {
+        Ok(f) => f,
+        Err(e) => {
+            log::error!("lagani cm: fontovi nisu stvoreni: {}", e);
+            return;
+        }
     };
     UI.with(|c| {
         if let Ok(mut g) = c.try_borrow_mut() {
-            *g = Some(ui);
+            *g = Some(Ui {
+                gfx,
+                fonts,
+                shown: None,
+                hover: None,
+            });
         }
     });
     SetTimer(hwnd, TIMER_REFRESH, 300, None);
@@ -272,27 +274,19 @@ unsafe fn on_create(hwnd: HWND) {
 
 unsafe fn on_timer(hwnd: HWND) {
     let peer = current_peer();
-    let buttons = UI.with(|c| match c.try_borrow_mut() {
-        Ok(mut g) => match g.as_mut() {
-            Some(ui) if ui.shown != peer => {
-                ui.shown = peer.clone();
-                Some((ui.btn_allow, ui.btn_deny, ui.btn_disconnect))
-            }
-            _ => None,
-        },
-        Err(_) => None,
-    });
-    let Some((btn_allow, btn_deny, btn_disconnect)) = buttons else {
-        return;
-    };
-    let (request, active) = match &peer {
-        Some(p) => (!p.authorized, p.authorized),
-        None => (false, false),
-    };
-    ShowWindow(btn_allow, if request { SW_SHOW } else { SW_HIDE });
-    ShowWindow(btn_deny, if request { SW_SHOW } else { SW_HIDE });
-    ShowWindow(btn_disconnect, if active { SW_SHOW } else { SW_HIDE });
-    win32::redraw(hwnd);
+    let changed = with_ui(|ui| {
+        if ui.shown != peer {
+            ui.shown = peer;
+            ui.hover = None;
+            true
+        } else {
+            false
+        }
+    })
+    .unwrap_or(false);
+    if changed {
+        win32::redraw(hwnd);
+    }
 }
 
 unsafe fn on_allow() {
@@ -323,76 +317,18 @@ unsafe fn on_close_peer() {
 
 unsafe fn on_paint(hwnd: HWND) {
     let mut ps: PAINTSTRUCT = std::mem::zeroed();
-    let hdc = BeginPaint(hwnd, &mut ps);
-    UI.with(|c| {
-        if let Ok(g) = c.try_borrow() {
-            if let Some(ui) = g.as_ref() {
-                paint(hdc, hwnd, ui);
-            }
+    BeginPaint(hwnd, &mut ps);
+    with_ui(|ui| {
+        let Ui {
+            gfx,
+            fonts,
+            shown,
+            hover,
+        } = ui;
+        let s = state(shown, *hover);
+        if let Err(e) = gfx.paint(izgled::BG, |c| izgled::crtaj_cm(c, fonts, &s)) {
+            log::error!("lagani cm: crtanje nije uspjelo: {}", e);
         }
     });
     EndPaint(hwnd, &ps);
-}
-
-unsafe fn paint(hdc: HDC, hwnd: HWND, ui: &Ui) {
-    let s = ui.scale;
-    let p = |v: i32| px(v, s);
-    let client = win32::client_rect(hwnd);
-    win32::fill_rect(hdc, &client, BG);
-
-    let (title, body, tip) = match &ui.shown {
-        None => (
-            "Čekanje na zahtjev za spajanje…".to_owned(),
-            String::new(),
-            "",
-        ),
-        Some(peer) => {
-            let who = if peer.name.trim().is_empty() {
-                format!("Tehničar WiPS ({})", peer.peer_id)
-            } else {
-                format!("{} ({})", peer.name.trim(), peer.peer_id)
-            };
-            if peer.authorized {
-                (
-                    "Veza je aktivna".to_owned(),
-                    format!("{} upravlja vašim računalom.", who),
-                    TIP_ACTIVE,
-                )
-            } else {
-                (
-                    "Zahtjev za spajanje".to_owned(),
-                    format!("{} traži pristup vašem računalu.", who),
-                    TIP_REQUEST,
-                )
-            }
-        }
-    };
-
-    let mut rc = win32::rect(p(24), p(16), p(356), p(42));
-    win32::draw_text(
-        hdc,
-        &title,
-        &mut rc,
-        &ui.fonts.title,
-        TEXT,
-        DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX,
-    );
-    let mut rc = win32::rect(p(24), p(52), p(356), p(96));
-    win32::draw_text(
-        hdc,
-        &body,
-        &mut rc,
-        &ui.fonts.body,
-        TEXT,
-        DT_LEFT | DT_WORDBREAK | DT_NOPREFIX,
-    );
-    let mut rc = win32::rect(p(24), p(104), p(356), p(168));
-    win32::draw_text(
-        hdc,
-        tip,
-        &mut rc,
-        &ui.fonts.small,
-        MUTED,
-        DT_LEFT | DT_WORDBREAK | DT_NOPREFIX,
-    );
 }

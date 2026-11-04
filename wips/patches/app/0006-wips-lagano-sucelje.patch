@@ -1,5 +1,5 @@
 diff --git a/Cargo.toml b/Cargo.toml
-index 1002586..2923bf2 100644
+index 1002586..2e51c8c 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -26,6 +26,8 @@ use_samplerate = ["samplerate", "libsamplerate-sys"]
@@ -22,6 +22,18 @@ index 1002586..2923bf2 100644
  ] }
  windows = { version = "0.61", features = [
      "Win32",
+@@ -145,6 +151,11 @@ windows = { version = "0.61", features = [
+     "Win32_System_Threading",
+     "Win32_UI_Shell",
+     "Win32_UI_WindowsAndMessaging",
++    "Win32_Graphics_Direct2D",
++    "Win32_Graphics_Direct2D_Common",
++    "Win32_Graphics_DirectWrite",
++    "Win32_Graphics_Dxgi_Common",
++    "Win32_UI_HiDpi",
+ ] }
+ winreg = "0.11"
+ windows-service = "0.6"
 diff --git a/build.rs b/build.rs
 index 30e486a..a9ee844 100644
 --- a/build.rs

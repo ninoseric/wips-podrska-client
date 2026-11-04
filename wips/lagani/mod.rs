@@ -3,7 +3,9 @@
 // `#[path]` u src/lib.rs, a poziva ga src/main.rs umjesto `ui::start`.
 // Jezgra (server, IPC, odobravanje veze, snimanje ekrana) ostaje RustDeskova: ovdje su samo prozori.
 mod cm;
+mod d2d;
 mod glavni;
+mod izgled;
 mod win32;
 
 use hbb_common::log;
