@@ -11,8 +11,8 @@ use winapi::shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM};
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::{
     BeginPaint, DefWindowProcW, EndPaint, KillTimer, LoadCursorW, PostQuitMessage, SetCursor,
-    SetTimer, IDC_HAND, PAINTSTRUCT, WM_CLOSE, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_LBUTTONUP,
-    WM_MOUSELEAVE, WM_MOUSEMOVE, WM_PAINT, WM_SETCURSOR, WM_SIZE, WM_TIMER,
+    SetTimer, IDC_HAND, PAINTSTRUCT, WM_CLOSE, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_LBUTTONDOWN,
+    WM_LBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_PAINT, WM_SETCURSOR, WM_SIZE, WM_TIMER,
 };
 
 use super::d2d::Gfx;
@@ -99,6 +99,10 @@ struct Ui {
     fonts: Fonts,
     shown: Option<Peer>,
     hover: Option<CmButton>,
+    /// Gumb na kojem je tipka miša pritisnuta; klik vrijedi samo ako je puštena na istom gumbu.
+    /// Tehničarska strana pri uspostavi veze šalje sintetičko puštanje tipke, koje bez toga
+    /// pogodi „Prekini vezu” (isti položaj kao „Dopusti”) i odmah prekine vezu.
+    pressed: Option<CmButton>,
 }
 
 thread_local! {
@@ -197,10 +201,19 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
             }
             0
         }
+        WM_LBUTTONDOWN => {
+            with_ui(|ui| {
+                let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
+                ui.pressed = izgled::cm_hit(&state(&ui.shown, None), x, y);
+            });
+            0
+        }
         WM_LBUTTONUP => {
             let hit = with_ui(|ui| {
                 let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
-                izgled::cm_hit(&state(&ui.shown, None), x, y)
+                let hit = izgled::cm_hit(&state(&ui.shown, None), x, y);
+                let pressed = ui.pressed.take();
+                hit.filter(|h| Some(*h) == pressed)
             })
             .flatten();
             match hit {
@@ -265,6 +278,7 @@ unsafe fn on_create(hwnd: HWND) {
                 fonts,
                 shown: None,
                 hover: None,
+                pressed: None,
             });
         }
     });
@@ -278,6 +292,7 @@ unsafe fn on_timer(hwnd: HWND) {
         if ui.shown != peer {
             ui.shown = peer;
             ui.hover = None;
+            ui.pressed = None;
             true
         } else {
             false
@@ -324,6 +339,7 @@ unsafe fn on_paint(hwnd: HWND) {
             fonts,
             shown,
             hover,
+            ..
         } = ui;
         let s = state(shown, *hover);
         if let Err(e) = gfx.paint(izgled::BG, |c| izgled::crtaj_cm(c, fonts, &s)) {
