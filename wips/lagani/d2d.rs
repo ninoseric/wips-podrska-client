@@ -1,25 +1,27 @@
 // Crtanje sučelja Direct2D-om i DirectWrite-om (oba su dio Windowsa): zaobljeni pravokutnici s antialiasingom,
-// font Manrope ugrađen u exe (wips/branding/fonts, OFL), logo iz wips/branding/generirano/logo.png.
+// font Manrope ugrađen u exe (wips/branding/fonts, OFL), logo iz wips/branding/generirano/logo*.png,
+// ikone iz sistemskog fonta Segoe MDL2 Assets (Windows 10 i 11).
 // Koordinate su u DIP-ovima (logički pikseli pri 96 dpi); Direct2D ih sam množi DPI-jem prozora.
 use std::ffi::c_void;
 
-use windows::core::{w, Result, PCWSTR};
+use windows::core::{w, Result};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Direct2D::Common::{
-    D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_PIXEL_FORMAT, D2D_RECT_F,
-    D2D_SIZE_U,
+    D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_PIXEL_FORMAT, D2D_RECT_F, D2D_SIZE_U,
 };
 use windows::Win32::Graphics::Direct2D::{
-    D2D1CreateFactory, ID2D1Bitmap, ID2D1Factory, ID2D1HwndRenderTarget, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
-    D2D1_BITMAP_PROPERTIES, D2D1_DRAW_TEXT_OPTIONS_NONE, D2D1_FACTORY_TYPE_SINGLE_THREADED,
-    D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE, D2D1_RENDER_TARGET_PROPERTIES,
-    D2D1_ROUNDED_RECT,
+    D2D1CreateFactory, ID2D1Bitmap, ID2D1Factory, ID2D1HwndRenderTarget, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+    D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, D2D1_BITMAP_PROPERTIES, D2D1_DRAW_TEXT_OPTIONS_NONE,
+    D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE,
+    D2D1_RENDER_TARGET_PROPERTIES, D2D1_ROUNDED_RECT,
 };
 use windows::Win32::Graphics::DirectWrite::{
     DWriteCreateFactory, IDWriteFactory5, IDWriteFontCollection1, IDWriteTextFormat, DWRITE_FACTORY_TYPE_SHARED,
-    DWRITE_FONT_STRETCH_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_WEIGHT, DWRITE_MEASURING_MODE_NATURAL,
-    DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_NEAR, DWRITE_TEXT_ALIGNMENT_CENTER,
-    DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_WORD_WRAPPING_WRAP,
+    DWRITE_FONT_STRETCH_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_WEIGHT, DWRITE_FONT_WEIGHT_NORMAL,
+    DWRITE_MEASURING_MODE_NATURAL, DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_NEAR,
+    DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_TEXT_ALIGNMENT_TRAILING,
+    DWRITE_TEXT_METRICS, DWRITE_TRIMMING, DWRITE_TRIMMING_GRANULARITY_CHARACTER, DWRITE_WORD_WRAPPING_NO_WRAP,
+    DWRITE_WORD_WRAPPING_WRAP,
 };
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
@@ -31,9 +33,17 @@ const MANROPE: [&[u8]; 4] = [
     include_bytes!("../branding/fonts/Manrope-Bold.ttf"),
     include_bytes!("../branding/fonts/Manrope-ExtraBold.ttf"),
 ];
-const LOGO_PNG: &[u8] = include_bytes!("../branding/generirano/logo.png");
+const LOGO_PNG: [&[u8]; 2] = [
+    include_bytes!("../branding/generirano/logo.png"),
+    include_bytes!("../branding/generirano/logo_dark.png"),
+];
 
-#[derive(Clone, Copy)]
+/// Manrope Medium za GDI kontrole (polje za poruku u dopisivanju).
+pub fn manrope_medium() -> &'static [u8] {
+    MANROPE[0]
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Color(pub u32);
 
 impl Color {
@@ -65,6 +75,7 @@ pub fn inside(r: &D2D_RECT_F, x: f32, y: f32) -> bool {
 pub enum Align {
     Left,
     Center,
+    Right,
 }
 
 pub struct Gfx {
@@ -73,7 +84,7 @@ pub struct Gfx {
     fonts: IDWriteFontCollection1,
     hwnd: HWND,
     target: Option<ID2D1HwndRenderTarget>,
-    logo: Option<ID2D1Bitmap>,
+    logo: [Option<ID2D1Bitmap>; 2],
 }
 
 impl Gfx {
@@ -101,7 +112,7 @@ impl Gfx {
                 fonts,
                 hwnd,
                 target: None,
-                logo: None,
+                logo: [None, None],
             })
         }
     }
@@ -122,10 +133,7 @@ impl Gfx {
                 size,
                 w!("hr-HR"),
             )?;
-            f.SetTextAlignment(match align {
-                Align::Left => DWRITE_TEXT_ALIGNMENT_LEADING,
-                Align::Center => DWRITE_TEXT_ALIGNMENT_CENTER,
-            })?;
+            set_align(&f, align)?;
             f.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR)?;
             f.SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP)?;
             Ok(f)
@@ -139,6 +147,41 @@ impl Gfx {
             f.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER)?;
         }
         Ok(f)
+    }
+
+    /// Jednoredni natpis koji se, ako je predug, skraćuje trotočjem (ime tehničara, putanja).
+    pub fn font_line(&self, weight: u32, size: f32, align: Align) -> Result<IDWriteTextFormat> {
+        let f = self.font_vcenter(weight, size, align)?;
+        unsafe {
+            f.SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP)?;
+            let sign = self.dw.CreateEllipsisTrimmingSign(&f)?;
+            let trimming = DWRITE_TRIMMING {
+                granularity: DWRITE_TRIMMING_GRANULARITY_CHARACTER,
+                delimiter: 0,
+                delimiterCount: 0,
+            };
+            f.SetTrimming(&trimming, &sign)?;
+        }
+        Ok(f)
+    }
+
+    /// Ikone iz sistemskog fonta Segoe MDL2 Assets, centrirane u pravokutniku.
+    pub fn icons(&self, size: f32) -> Result<IDWriteTextFormat> {
+        unsafe {
+            let f = self.dw.CreateTextFormat(
+                w!("Segoe MDL2 Assets"),
+                None,
+                DWRITE_FONT_WEIGHT_NORMAL,
+                DWRITE_FONT_STYLE_NORMAL,
+                DWRITE_FONT_STRETCH_NORMAL,
+                size,
+                w!("hr-HR"),
+            )?;
+            f.SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER)?;
+            f.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER)?;
+            f.SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP)?;
+            Ok(f)
+        }
     }
 
     pub fn resize(&mut self) {
@@ -176,15 +219,16 @@ impl Gfx {
             let t = self.d2d.CreateHwndRenderTarget(&props, &hwnd_props)?;
             let dpi = GetDpiForWindow(self.hwnd) as f32;
             t.SetDpi(dpi, dpi);
-            self.logo = None;
+            self.logo = [None, None];
             self.target = Some(t.clone());
             Ok(t)
         }
     }
 
-    fn ensure_logo(&mut self, t: &ID2D1HwndRenderTarget) -> Option<ID2D1Bitmap> {
-        if self.logo.is_none() {
-            let img = image::load_from_memory(LOGO_PNG).ok()?.into_rgba8();
+    fn ensure_logo(&mut self, t: &ID2D1HwndRenderTarget, dark: bool) -> Option<ID2D1Bitmap> {
+        let i = dark as usize;
+        if self.logo[i].is_none() {
+            let img = image::load_from_memory(LOGO_PNG[i]).ok()?.into_rgba8();
             let (w, h) = img.dimensions();
             let mut bgra: Vec<u8> = Vec::with_capacity((w * h * 4) as usize);
             for px in img.pixels() {
@@ -214,30 +258,43 @@ impl Gfx {
                 )
             }
             .ok()?;
-            self.logo = Some(bmp);
+            self.logo[i] = Some(bmp);
         }
-        self.logo.clone()
+        self.logo[i].clone()
     }
 
     /// Jedan okvir: `draw` dobiva platno; ako Direct2D traži novi render target, stvara se pri sljedećem crtanju.
-    pub fn paint(&mut self, background: Color, draw: impl FnOnce(&Canvas)) -> Result<()> {
+    pub fn paint(&mut self, background: Color, dark: bool, draw: impl FnOnce(&Canvas)) -> Result<()> {
         let t = self.ensure_target()?;
-        let logo = self.ensure_logo(&t);
+        let logo = self.ensure_logo(&t, dark);
         unsafe {
             t.BeginDraw();
             t.Clear(Some(&background.f()));
-            draw(&Canvas { t: &t, logo });
+            draw(&Canvas {
+                t: &t,
+                dw: &self.dw,
+                logo,
+            });
             if t.EndDraw(None, None).is_err() {
                 self.target = None;
-                self.logo = None;
+                self.logo = [None, None];
             }
         }
         Ok(())
     }
 }
 
+unsafe fn set_align(f: &IDWriteTextFormat, align: Align) -> Result<()> {
+    f.SetTextAlignment(match align {
+        Align::Left => DWRITE_TEXT_ALIGNMENT_LEADING,
+        Align::Center => DWRITE_TEXT_ALIGNMENT_CENTER,
+        Align::Right => DWRITE_TEXT_ALIGNMENT_TRAILING,
+    })
+}
+
 pub struct Canvas<'a> {
     t: &'a ID2D1HwndRenderTarget,
+    dw: &'a IDWriteFactory5,
     logo: Option<ID2D1Bitmap>,
 }
 
@@ -306,6 +363,37 @@ impl<'a> Canvas<'a> {
         }
     }
 
+    pub fn icon(&self, glyph: char, font: &IDWriteTextFormat, r: &D2D_RECT_F, color: Color) {
+        let mut buf = [0u8; 4];
+        self.text(glyph.encode_utf8(&mut buf), font, r, color);
+    }
+
+    /// Širina i visina teksta prelomljenog na `max_w`.
+    pub fn measure(&self, text: &str, font: &IDWriteTextFormat, max_w: f32) -> (f32, f32) {
+        let w: Vec<u16> = text.encode_utf16().collect();
+        unsafe {
+            if let Ok(layout) = self.dw.CreateTextLayout(&w, font, max_w, 10_000.0) {
+                let mut m = DWRITE_TEXT_METRICS::default();
+                if layout.GetMetrics(&mut m).is_ok() {
+                    return (m.widthIncludingTrailingWhitespace, m.height);
+                }
+            }
+        }
+        (0.0, 0.0)
+    }
+
+    pub fn push_clip(&self, r: &D2D_RECT_F) {
+        unsafe {
+            self.t.PushAxisAlignedClip(r, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+        }
+    }
+
+    pub fn pop_clip(&self) {
+        unsafe {
+            self.t.PopAxisAlignedClip();
+        }
+    }
+
     pub fn logo(&self, r: &D2D_RECT_F) {
         if let Some(bmp) = &self.logo {
             unsafe {
@@ -315,6 +403,3 @@ impl<'a> Canvas<'a> {
         }
     }
 }
-
-#[allow(dead_code)]
-fn _unused(_: PCWSTR) {}

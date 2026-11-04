@@ -51,6 +51,18 @@ jobs:
           echo "EXE_NAME=$app" >> "$GITHUB_ENV"
           echo "EXE_NAME=$app"
 
+      # Zakrpa 0001 daje WiPS metapodatke Flutter runneru i portable omotaču; ovaj exe gradi root crate
+      # (build.rs, winres iz [package.metadata.winres]), pa mu se izdavač i izvorni naziv upisuju ovdje.
+      - name: Metapodaci exe-a
+        shell: bash
+        run: |
+          company=$(sed -n 's/^WIPS_COMPANY=//p' wips/server.env | tr -d '\r')
+          test -n "$company"
+          grep -q '^OriginalFilename = "rustdesk.exe"' Cargo.toml
+          sed -i "s/^OriginalFilename = \"rustdesk.exe\"/OriginalFilename = \"${EXE_NAME}.exe\"\nInternalName = \"${EXE_NAME}\"\nCompanyName = \"${company}\"/" Cargo.toml
+          sed -n '/^\[package.metadata.winres\]/,/^$/p' Cargo.toml
+          grep -q "^CompanyName = \"${company}\"" Cargo.toml
+
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
         with:
@@ -113,7 +125,7 @@ jobs:
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
           $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
           if ($dumpbin) { & $dumpbin.FullName /dependents $exe.FullName | Select-String -Pattern '\.dll' }
-          (Get-Item "out\$env:EXE_NAME.exe").VersionInfo | Format-List ProductName, FileDescription, FileVersion, CompanyName
+          (Get-Item "out\$env:EXE_NAME.exe").VersionInfo | Format-List ProductName, FileDescription, FileVersion, CompanyName, OriginalFilename, InternalName
           (Get-ChildItem out | ForEach-Object { "{0} {1}" -f $_.Length, $_.Name }) | Set-Content out\VELICINA.txt
 
       - name: Upload exe

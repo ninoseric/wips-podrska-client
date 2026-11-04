@@ -1,25 +1,29 @@
-// Početni prozor korisničke verzije: logo, stanje veze, ID, „Kopiraj ID”, uputa za poziv podrške.
-// Izgled je u izgled.rs (smjer C „Svijetli Fluent”), crtanje u d2d.rs; ovdje su prozor, miš i timeri.
+// Početni prozor korisničke verzije, kao wips_incoming_home.dart: logo, stanje veze, ID, „Kopiraj ID”,
+// uputa za poziv podrške, redak za instalaciju ili nadogradnju, podnožje s poveznicom i postavkama.
 // ID i stanje dolaze iz jezgre preko IPC-a (ui_interface::get_connect_status).
 use std::cell::RefCell;
-use std::ptr::{null, null_mut};
+use std::ptr::null;
 use std::sync::Mutex;
 
 use hbb_common::log;
 use winapi::shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM};
 use winapi::shared::windef::HWND;
 use winapi::um::winuser::{
-    BeginPaint, DefWindowProcW, EndPaint, FindWindowW, KillTimer, LoadCursorW, PostQuitMessage,
-    SetCursor, SetTimer, IDC_HAND, PAINTSTRUCT, WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_LBUTTONUP,
-    WM_MOUSELEAVE, WM_MOUSEMOVE, WM_PAINT, WM_SETCURSOR, WM_SIZE, WM_TIMER,
+    BeginPaint, DefWindowProcW, EndPaint, FindWindowW, KillTimer, PostQuitMessage, SetTimer, PAINTSTRUCT,
+    WM_CREATE, WM_DESTROY, WM_ERASEBKGND, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_PAINT,
+    WM_SETCURSOR, WM_SETTINGCHANGE, WM_SIZE, WM_TIMER,
 };
 
-use super::d2d::{inside, Gfx};
-use super::izgled::{self, Fonts};
-use super::win32::{self, WindowSpec};
+use super::d2d::rect;
+use super::izgled::{self, format_id, ikona};
+use super::ui::{Prozor, Vrsta, WM_OSVJEZI};
+use super::win32::{self, Pos, WindowSpec};
+use super::{postavke, tr};
 
 const CLASS: &str = "WiPSLaganiGlavni";
-const TITLE: &str = "WiPS udaljena podrška";
+const W: f32 = 340.0;
+const H: i32 = 456;
+const RED_H: i32 = 60;
 
 const TIMER_STATUS: usize = 1;
 const TIMER_COPIED: usize = 2;
@@ -27,20 +31,49 @@ const TIMER_COPIED: usize = 2;
 /// ID dohvaćen od jezgre (ipc::get_id) u pozadinskoj niti, dok ga nit stanja još nije javila.
 static IPC_ID: Mutex<String> = Mutex::new(String::new());
 
-struct Ui {
-    gfx: Gfx,
-    fonts: Fonts,
+#[derive(Clone, Copy, PartialEq)]
+enum A {
+    Kopiraj,
+    Instaliraj,
+    Nadogradi,
+    Web,
+    Postavke,
+}
+
+/// Redak ispod upute, kao u Flutter verziji: instalacija dok program nije instaliran, inače nadogradnja
+/// ako je instalirana starija verzija.
+#[derive(Clone, Copy, PartialEq)]
+enum Red {
+    Nista,
+    Instalacija,
+    Nadogradnja,
+}
+
+fn red() -> Red {
+    if hbb_common::config::is_disable_installation() {
+        Red::Nista
+    } else if !crate::ui_interface::is_installed() {
+        Red::Instalacija
+    } else if crate::ui_interface::is_installed_lower_version() {
+        Red::Nadogradnja
+    } else {
+        Red::Nista
+    }
+}
+
+struct Stanje {
+    w: Prozor<A>,
     id: String,
     status: i32,
     copied: bool,
-    hover: bool,
+    red: Red,
 }
 
 thread_local! {
-    static UI: RefCell<Option<Ui>> = RefCell::new(None);
+    static UI: RefCell<Option<Stanje>> = RefCell::new(None);
 }
 
-fn with_ui<R>(f: impl FnOnce(&mut Ui) -> R) -> Option<R> {
+fn with_ui<R>(f: impl FnOnce(&mut Stanje) -> R) -> Option<R> {
     UI.with(|c| match c.try_borrow_mut() {
         Ok(mut g) => g.as_mut().map(f),
         Err(_) => None,
@@ -65,14 +98,17 @@ pub fn run() {
             *v = id;
         }
     });
+    let height = if red() == Red::Nista { H } else { H + RED_H };
     let hwnd = unsafe {
         win32::create_window(&WindowSpec {
             class: CLASS,
-            title: TITLE,
-            width: izgled::GLAVNI_W,
-            height: izgled::GLAVNI_H,
+            title: izgled::NAZIV,
+            pos: Pos::Center,
+            owner: std::ptr::null_mut(),
+            width: W as i32,
+            height,
             scale: win32::scale(),
-            background: izgled::BG.0,
+            background: super::tema::pal().bg.0,
             topmost: false,
             wndproc: Some(wndproc),
         })
@@ -101,53 +137,33 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
             0
         }
         WM_PAINT => {
-            on_paint(hwnd);
+            let mut ps: PAINTSTRUCT = std::mem::zeroed();
+            BeginPaint(hwnd, &mut ps);
+            with_ui(crtaj);
+            EndPaint(hwnd, &ps);
             0
         }
         WM_ERASEBKGND => 1,
         WM_SIZE => {
-            with_ui(|ui| ui.gfx.resize());
+            with_ui(|s| s.w.gfx.resize());
             0
         }
-        WM_MOUSEMOVE => {
-            let changed = with_ui(|ui| {
-                let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
-                let h = inside(&izgled::glavni_copy_rect(), x, y);
-                let changed = h != ui.hover;
-                ui.hover = h;
-                changed
-            })
-            .unwrap_or(false);
-            win32::track_mouse_leave(hwnd);
-            if changed {
-                win32::redraw(hwnd);
-            }
-            0
-        }
-        WM_MOUSELEAVE => {
-            if with_ui(|ui| std::mem::replace(&mut ui.hover, false)).unwrap_or(false) {
-                win32::redraw(hwnd);
-            }
-            0
-        }
-        WM_LBUTTONUP => {
-            let hit = with_ui(|ui| {
-                let (x, y) = win32::mouse_point(lparam, ui.gfx.scale());
-                inside(&izgled::glavni_copy_rect(), x, y)
-            })
-            .unwrap_or(false);
-            if hit {
-                on_copy(hwnd);
+        WM_MOUSEMOVE | WM_MOUSELEAVE | WM_LBUTTONDOWN | WM_LBUTTONUP => {
+            if let Some(Some(a)) = with_ui(|s| s.w.mis(hwnd, msg, lparam)) {
+                on_action(hwnd, a);
             }
             0
         }
         WM_SETCURSOR => {
-            if with_ui(|ui| ui.hover).unwrap_or(false) {
-                SetCursor(LoadCursorW(null_mut(), IDC_HAND));
+            if with_ui(|s| s.w.kursor()).unwrap_or(false) {
                 1
             } else {
                 DefWindowProcW(hwnd, msg, wparam, lparam)
             }
+        }
+        WM_SETTINGCHANGE | WM_OSVJEZI => {
+            with_ui(|s| s.w.osvjezi_temu(hwnd));
+            0
         }
         WM_DESTROY => {
             KillTimer(hwnd, TIMER_STATUS);
@@ -164,31 +180,23 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
 }
 
 unsafe fn on_create(hwnd: HWND) {
-    let gfx = match Gfx::new(windows::Win32::Foundation::HWND(hwnd as *mut _)) {
-        Ok(g) => g,
+    let w = match Prozor::new(hwnd) {
+        Ok(w) => w,
         Err(e) => {
             log::error!("lagani: Direct2D nije dostupan: {}", e);
             return;
         }
     };
-    let fonts = match Fonts::new(&gfx) {
-        Ok(f) => f,
-        Err(e) => {
-            log::error!("lagani: fontovi nisu stvoreni: {}", e);
-            return;
-        }
-    };
-    let ui = Ui {
-        gfx,
-        fonts,
+    let s = Stanje {
+        w,
         id: String::new(),
         status: 0,
         copied: false,
-        hover: false,
+        red: red(),
     };
     UI.with(|c| {
         if let Ok(mut g) = c.try_borrow_mut() {
-            *g = Some(ui);
+            *g = Some(s);
         }
     });
     SetTimer(hwnd, TIMER_STATUS, 400, None);
@@ -198,7 +206,7 @@ unsafe fn on_create(hwnd: HWND) {
 unsafe fn on_timer(hwnd: HWND, id: WPARAM) {
     if id == TIMER_COPIED {
         KillTimer(hwnd, TIMER_COPIED);
-        with_ui(|ui| ui.copied = false);
+        with_ui(|s| s.copied = false);
         win32::redraw(hwnd);
         return;
     }
@@ -209,10 +217,10 @@ unsafe fn on_timer(hwnd: HWND, id: WPARAM) {
             new_id = v.clone();
         }
     }
-    let changed = with_ui(|ui| {
-        let changed = ui.id != new_id || ui.status != st.status_num;
-        ui.id = new_id;
-        ui.status = st.status_num;
+    let changed = with_ui(|s| {
+        let changed = s.id != new_id || s.status != st.status_num;
+        s.id = new_id;
+        s.status = st.status_num;
         changed
     })
     .unwrap_or(false);
@@ -221,16 +229,34 @@ unsafe fn on_timer(hwnd: HWND, id: WPARAM) {
     }
 }
 
+unsafe fn on_action(hwnd: HWND, a: A) {
+    match a {
+        A::Kopiraj => on_copy(hwnd),
+        A::Instaliraj => {
+            log::info!("lagani: korisnik pokrenuo instalaciju");
+            crate::ui_interface::goto_install();
+        }
+        A::Nadogradi => {
+            log::info!("lagani: korisnik pokrenuo nadogradnju");
+            crate::ui_interface::update_me(String::new());
+        }
+        A::Web => win32::open_url(izgled::WEB),
+        A::Postavke => postavke::otvori(hwnd),
+    }
+}
+
 unsafe fn on_copy(hwnd: HWND) {
-    let Some(id) = with_ui(|ui| ui.id.clone()) else {
+    let Some(id) = with_ui(|s| s.id.replace(' ', "")) else {
         return;
     };
     if id.is_empty() {
         return;
     }
-    match arboard::Clipboard::new().and_then(|mut c| c.set_text(id)) {
+    // Isti tekst kao Flutter verzija („ID: 123456789”).
+    let text = format!("{}: {}", tr("ID"), id);
+    match arboard::Clipboard::new().and_then(|mut c| c.set_text(text)) {
         Ok(()) => {
-            with_ui(|ui| ui.copied = true);
+            with_ui(|s| s.copied = true);
             win32::redraw(hwnd);
             SetTimer(hwnd, TIMER_COPIED, 1500, None);
         }
@@ -238,28 +264,107 @@ unsafe fn on_copy(hwnd: HWND) {
     }
 }
 
-unsafe fn on_paint(hwnd: HWND) {
-    let mut ps: PAINTSTRUCT = std::mem::zeroed();
-    BeginPaint(hwnd, &mut ps);
-    with_ui(|ui| {
-        let Ui {
-            gfx,
-            fonts,
-            id,
-            status,
-            copied,
-            hover,
-        } = ui;
-        let s = izgled::Glavni {
-            id,
-            status: *status,
-            version: crate::VERSION,
-            copied: *copied,
-            hover_copy: *hover,
+fn crtaj(s: &mut Stanje) {
+    let id = s.id.clone();
+    let status = s.status;
+    let copied = s.copied;
+    let red = s.red;
+    s.w.crtaj(|p| {
+        let pal = p.p;
+        let f = p.f;
+        p.c.logo(&rect(W / 2.0 - 44.0, 18.0, W / 2.0 + 44.0, 106.0));
+
+        let title = if status > 0 {
+            tr("Ready for support")
+        } else if status == 0 {
+            tr("Connecting to the server")
+        } else {
+            tr("Support is not available")
         };
-        if let Err(e) = gfx.paint(izgled::BG, |c| izgled::crtaj_glavni(c, fonts, &s)) {
-            log::error!("lagani: crtanje nije uspjelo: {}", e);
+        p.text(&title, &f.title, &rect(16.0, 114.0, W - 16.0, 146.0), pal.text);
+        let line = if status > 0 {
+            Some((tr("Connected to the WiPS server"), pal.ok))
+        } else if status < 0 {
+            Some((tr("not_ready_status"), pal.danger))
+        } else {
+            None
+        };
+        if let Some((t, color)) = line {
+            let tw = p.width(&t, &f.status);
+            let x = W / 2.0 - (14.0 + tw) / 2.0;
+            p.c.circle(x + 4.0, 159.0, 4.0, color);
+            p.text(&t, &f.status, &rect(x + 14.0, 148.0, x + 16.0 + tw, 170.0), color);
         }
+
+        let card = rect(16.0, 188.0, W - 16.0, 344.0);
+        p.c.fill_round(&card, 12.0, pal.card);
+        p.c.stroke_round(&card, 12.0, pal.border, 1.0);
+        p.text(&tr("ID"), &f.label, &rect(34.0, 204.0, 200.0, 220.0), pal.muted);
+        let id_text = if id.is_empty() {
+            "— — —".to_owned()
+        } else {
+            format_id(&id)
+        };
+        let chip_w = (p.width(&id_text, &f.id) + 22.0).max(120.0).min(W - 68.0);
+        let chip = rect(34.0, 224.0, 34.0 + chip_w, 266.0);
+        p.c.fill_round(&chip, 8.0, pal.chip);
+        p.text(&id_text, &f.id, &chip, pal.text);
+        let label = if copied {
+            format!("{}  ✓", tr("Copied"))
+        } else {
+            tr("Copy ID")
+        };
+        p.gumb(
+            rect(34.0, 282.0, W - 34.0, 326.0),
+            A::Kopiraj,
+            Vrsta::Primarni,
+            &label,
+            Some(ikona::COPY),
+            true,
+        );
+
+        p.text(&tr("wips_support_tip"), &f.tip, &rect(30.0, 356.0, W - 30.0, 414.0), pal.muted);
+
+        let mut y = 422.0;
+        if red != Red::Nista {
+            let r = rect(16.0, y, W - 16.0, y + 48.0);
+            p.c.fill_round(&r, 10.0, pal.chip);
+            p.c.icon(ikona::INFO, &f.icon16, &rect(26.0, y, 44.0, y + 48.0), pal.muted);
+            let (text, btn, a) = match red {
+                Red::Instalacija => (tr("wips_install_tip"), tr("Install"), A::Instaliraj),
+                _ => (
+                    tr("Your installation is lower version."),
+                    tr("Click to upgrade"),
+                    A::Nadogradi,
+                ),
+            };
+            let bw = p.width(&btn, &f.btn) + 20.0;
+            let br = rect(r.right - 6.0 - bw, y + 8.0, r.right - 6.0, y + 40.0);
+            let tw = br.left - 6.0 - 52.0;
+            let (_, th) = p.c.measure(&text, &f.tip_l, tw);
+            p.text(
+                &text,
+                &f.tip_l,
+                &rect(52.0, y + (48.0 - th) / 2.0, br.left - 6.0, y + 48.0),
+                pal.text,
+            );
+            p.tekst_gumb(br, a, &btn);
+            y += RED_H as f32;
+        }
+
+        let top = y + 4.0;
+        let bottom = top + 22.0;
+        let lead = format!("{}  ·  ", izgled::PHONE);
+        let lw = p.width(&lead, &f.small);
+        p.text(&lead, &f.small, &rect(20.0, top, 22.0 + lw, bottom), pal.muted);
+        let x = p.poveznica(20.0 + lw, top, bottom, A::Web, "wips.hr", &f.small);
+        let ver = format!("  ·  v{}", crate::VERSION);
+        p.text(&ver, &f.small, &rect(x, top, W - 44.0, bottom), pal.muted);
+        p.ikona_gumb(
+            rect(W - 40.0, top - 5.0, W - 8.0, bottom + 5.0),
+            A::Postavke,
+            ikona::SETTINGS,
+            pal.muted,
+        );
     });
-    EndPaint(hwnd, &ps);
 }

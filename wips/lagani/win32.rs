@@ -7,16 +7,18 @@ use winapi::shared::minwindef::{FILETIME, HINSTANCE, LPARAM};
 use winapi::shared::windef::{HICON, HWND, RECT};
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::{GetCurrentProcess, GetProcessTimes};
-use winapi::um::shellapi::ExtractIconW;
+use winapi::um::shellapi::{ExtractIconW, ShellExecuteW};
 use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
 use winapi::um::wingdi::{CreateSolidBrush, GetDeviceCaps, LOGPIXELSY};
 use winapi::um::winuser::{
     AdjustWindowRectEx, CreateWindowExW, DispatchMessageW, GetDC, GetMessageW, GetSystemMetrics,
-    InvalidateRect, LoadCursorW, LoadIconW, RegisterClassW, ReleaseDC, SetForegroundWindow,
-    ShowWindow, TrackMouseEvent, TranslateMessage, UpdateWindow, CS_HREDRAW, CS_VREDRAW, IDC_ARROW,
-    IDI_APPLICATION, MSG, SM_CXSCREEN, SM_CYSCREEN, SW_RESTORE, SW_SHOW, TME_LEAVE,
-    TRACKMOUSEEVENT, WNDCLASSW, WNDPROC, WS_CAPTION, WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_OVERLAPPED,
-    WS_SYSMENU,
+    GetWindowLongW, GetWindowRect, InvalidateRect, LoadCursorW, LoadIconW,
+    MessageBoxW, RegisterClassW, ReleaseDC, SetForegroundWindow, SetWindowPos, SetWindowTextW,
+    ShowWindow, SystemParametersInfoW, TrackMouseEvent, TranslateMessage, UpdateWindow, CS_HREDRAW,
+    CS_VREDRAW, GWL_EXSTYLE, GWL_STYLE, IDC_ARROW, IDI_APPLICATION, IDYES, MB_ICONINFORMATION,
+    MB_ICONQUESTION, MB_OK, MB_YESNO, MSG, SM_CXSCREEN, SM_CYSCREEN, SPI_GETWORKAREA, SWP_NOACTIVATE,
+    SWP_NOZORDER, SW_RESTORE, SW_SHOW, TME_LEAVE, TRACKMOUSEEVENT, WNDCLASSW, WNDPROC, WS_CAPTION,
+    WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU,
 };
 
 pub fn wide(s: &str) -> Vec<u16> {
@@ -90,9 +92,19 @@ pub unsafe fn track_mouse_leave(hwnd: HWND) {
     TrackMouseEvent(&mut t);
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum Pos {
+    Center,
+    /// Gore desno u radnom području (prozor za odobravanje, kao u Flutter verziji).
+    TopRight,
+}
+
 pub struct WindowSpec<'a> {
     pub class: &'a str,
     pub title: &'a str,
+    pub pos: Pos,
+    /// Vlasnik (npr. početni prozor za postavke) ili null.
+    pub owner: HWND,
     /// Veličina klijentskog dijela u logičkim pikselima.
     pub width: i32,
     pub height: i32,
@@ -133,8 +145,17 @@ pub unsafe fn create_window(spec: &WindowSpec) -> HWND {
     AdjustWindowRectEx(&mut rc, style, 0, ex_style);
     let w = rc.right - rc.left;
     let h = rc.bottom - rc.top;
-    let x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
-    let y = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
+    let (x, y) = match spec.pos {
+        Pos::Center => (
+            (GetSystemMetrics(SM_CXSCREEN) - w) / 2,
+            (GetSystemMetrics(SM_CYSCREEN) - h) / 2,
+        ),
+        Pos::TopRight => {
+            let wa = work_area();
+            let m = px(12, spec.scale);
+            (wa.right - w - m, wa.top + m)
+        }
+    };
     let hwnd = CreateWindowExW(
         ex_style,
         class.as_ptr(),
@@ -144,7 +165,7 @@ pub unsafe fn create_window(spec: &WindowSpec) -> HWND {
         y,
         w,
         h,
-        null_mut(),
+        spec.owner,
         null_mut(),
         hinst,
         null_mut(),
@@ -184,4 +205,58 @@ pub unsafe fn message_loop() {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
+}
+
+unsafe fn work_area() -> RECT {
+    let mut wa: RECT = std::mem::zeroed();
+    if SystemParametersInfoW(SPI_GETWORKAREA, 0, &mut wa as *mut RECT as *mut _, 0) == 0 {
+        wa.right = GetSystemMetrics(SM_CXSCREEN);
+        wa.bottom = GetSystemMetrics(SM_CYSCREEN);
+    }
+    wa
+}
+
+/// Nova veličina klijentskog dijela (logički pikseli); `keep_right` zadržava desni rub (CM uz dopisivanje).
+pub unsafe fn set_client_size(hwnd: HWND, width: i32, height: i32, scale: f32, keep_right: bool) {
+    let style = GetWindowLongW(hwnd, GWL_STYLE) as u32;
+    let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
+    let mut rc = RECT {
+        left: 0,
+        top: 0,
+        right: px(width, scale),
+        bottom: px(height, scale),
+    };
+    AdjustWindowRectEx(&mut rc, style, 0, ex_style);
+    let w = rc.right - rc.left;
+    let h = rc.bottom - rc.top;
+    let mut cur: RECT = std::mem::zeroed();
+    GetWindowRect(hwnd, &mut cur);
+    let x = if keep_right { cur.right - w } else { cur.left };
+    SetWindowPos(hwnd, null_mut(), x, cur.top, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+pub unsafe fn set_title(hwnd: HWND, title: &str) {
+    let t = wide(title);
+    SetWindowTextW(hwnd, t.as_ptr());
+}
+
+/// Otvara adresu u zadanom pregledniku.
+pub fn open_url(url: &str) {
+    let op = wide("open");
+    let u = wide(url);
+    unsafe {
+        ShellExecuteW(null_mut(), op.as_ptr(), u.as_ptr(), null(), null(), SW_SHOW);
+    }
+}
+
+pub unsafe fn ask(hwnd: HWND, text: &str) -> bool {
+    let t = wide(text);
+    let c = wide(super::izgled::NAZIV);
+    MessageBoxW(hwnd, t.as_ptr(), c.as_ptr(), MB_YESNO | MB_ICONQUESTION) == IDYES
+}
+
+pub unsafe fn info(hwnd: HWND, text: &str) {
+    let t = wide(text);
+    let c = wide(super::izgled::NAZIV);
+    MessageBoxW(hwnd, t.as_ptr(), c.as_ptr(), MB_OK | MB_ICONINFORMATION);
 }

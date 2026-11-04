@@ -39,7 +39,7 @@ Korisničku verziju štiti pristanak korisnika (svako spajanje treba klik, lozin
 | `app/0003-wips-hr-prijevod-naziva` | hrvatski tekstovi u kojima se naziv sklanja ("RustDesku" bi postalo "WiPSPodrskau") |
 | `app/0004-wips-izgled-korisnicke-verzije` | novi početni prozor korisničke verzije (`wips_incoming_home.dart`, smjer C "Svijetli Fluent", font Manrope iz `wips/branding/fonts/`); tehničarska verzija ga ne koristi |
 | `app/0005-wips-izgled-prozora-za-odobravanje` | prozor za odobravanje i tijek veze u korisničkoj verziji (`wips_cm_card.dart`, dio `server_page.dart`): zaglavlje s tehničarem i stanjem, napomena prije odobravanja, dozvole kao popis s prekidačima, gumbi u stilu C; logika gumba ostaje upstream (`_CmControlPanel`) |
-| `app/0006-wips-lagano-sucelje` | prototip laganog sučelja (`wips/lagani/`, [`LAGANI.md`](LAGANI.md)): feature `lagani` u `Cargo.toml`, modul preko `#[path]` u `src/lib.rs`, poziv iz `src/main.rs`, manifest i ikona iz `build.rs`; bez feature-a `lagani` ne mijenja ništa (Flutter buildovi ga ne koriste) |
+| `app/0006-wips-lagano-sucelje` | lagano sučelje (`wips/lagani/`, [`LAGANI.md`](LAGANI.md)): feature `lagani` u `Cargo.toml`, modul preko `#[path]` u `src/lib.rs`, poziv iz `src/main.rs`, manifest i ikona iz `build.rs`, glasovni poziv u `src/ui_cm_interface.rs` dostupan i uz `lagani`; bez feature-a `lagani` ne mijenja ništa (Flutter buildovi ga ne koriste) |
 
 Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijanta>.env`. Ikone (iste za obje verzije): `python3 -P wips/branding/generiraj-ikone.py` iz `logo-izvor.png` (treba Pillow), rezultat se commita; CI ih samo kopira.
 
