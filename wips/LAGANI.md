@@ -105,7 +105,14 @@ Zamka pri mjerenju: virtualka „Windows 10 Dev” je **32-bitna**, a build je x
 | Ugrađeno | ikona, manifest (PerMonitorV2, vizualni stilovi), verzija s WiPS nazivom | | |
 
 Build je prošao iz prvog pokušaja, bez upozorenja iz `wips/lagani`. Trajanje: vcpkg 23 min (prvi put, bez cachea),
-cargo 27 min. Vrijeme pokretanja još nije izmjereno (vidi zamku s virtualkom gore).
+cargo 27 min. Komprimiran (lzma 9e, slično brotliju) exe ima 8,9 MB; to je usporedivo s 25 MB preuzimanja Flutter verzije.
+
+**Pokretanje izmjereno 4. 11. 2026. u virtualki „Windows 11 Pro”** (VirtualBox, 4 jezgre, 8 GB; exe svježe kopiran u
+`%TEMP%`, pa prvo pokretanje uključuje Defenderov sken). Vrijeme od stvaranja procesa do prikaza prozora, iz zapisnika
+programa (`lagani: početni prozor prikazan N ms nakon pokretanja procesa`): **hladno 1709 ms, toplo 352 / 545 / 479 ms**.
+Prozor je prikazao ID i „Povezano sa serverom WiPS” (jezgra se registrirala na rd.wips.hr). Za usporedbu, Flutter
+verzija pri prvom pokretanju raspakira 80 MB pa učitava Flutter engine; njezino vrijeme još nije izmjereno istom metodom.
+Prozor za odobravanje veze (`--cm`) još nije isproban s pravim spajanjem tehničara.
 
 Zaključak o veličini: Rust jezgra sama je ~35 MB nekomprimirano (webrtc, tokio, reqwest s rustls i native-tls,
 kodeci libvpx/aom/opus, i kod za upravljanje tuđim računalom koji korisnička verzija ne koristi). Flutter je na to

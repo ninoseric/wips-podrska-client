@@ -20,15 +20,15 @@ Add-Type -Namespace WipsMjerenje -Name Win32 -MemberDefinition @"
 public static extern System.IntPtr FindWindowW(string lpClassName, string lpWindowName);
 "@
 
-$exe = Get-Item -LiteralPath $Exe
-$naziv = [IO.Path]::GetFileNameWithoutExtension($exe.Name)
+$datoteka = Get-Item -LiteralPath $Exe
+$naziv = [IO.Path]::GetFileNameWithoutExtension($datoteka.Name)
 Get-Process -Name $naziv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 500
 
 $rezultati = @()
 for ($i = 1; $i -le $Ponavljanja; $i++) {
     $sat = [Diagnostics.Stopwatch]::StartNew()
-    $p = Start-Process -FilePath $exe.FullName -PassThru
+    $p = Start-Process -FilePath $datoteka.FullName -PassThru
     $hwnd = [IntPtr]::Zero
     while ($sat.ElapsedMilliseconds -lt 60000) {
         $hwnd = [WipsMjerenje.Win32]::FindWindowW($klasa, $null)
@@ -45,11 +45,11 @@ for ($i = 1; $i -le $Ponavljanja; $i++) {
     Start-Sleep -Seconds 1
 }
 
-$velicina = [math]::Round($exe.Length / 1MB, 1)
-"Veličina: $velicina MB ($($exe.Length) B), $($exe.Name)"
+$velicina = [math]::Round($datoteka.Length / 1MB, 1)
+"Veličina: $velicina MB ($($datoteka.Length) B), $($datoteka.Name)"
 $os = Get-CimInstance Win32_OperatingSystem
 $sazetak = [pscustomobject]@{
-    exe = $exe.Name; velicina_mb = $velicina; velicina_b = $exe.Length
+    exe = $datoteka.Name; velicina_mb = $velicina; velicina_b = $datoteka.Length
     os = "$($os.Caption) $($os.Version) ($($os.OSArchitecture))"; racunalo = $env:COMPUTERNAME
     vrijeme = (Get-Date -Format 's'); pokretanja = $rezultati
 }
@@ -57,7 +57,7 @@ if ($Izlaz) { $sazetak | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Izl
 
 if ($Prikaz -gt 0) {
     "Prikaz prozora $Prikaz s (za snimku zaslona)..."
-    $p = Start-Process -FilePath $exe.FullName -PassThru
+    $p = Start-Process -FilePath $datoteka.FullName -PassThru
     Start-Sleep -Seconds $Prikaz
     Get-Process -Name $naziv -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 }
