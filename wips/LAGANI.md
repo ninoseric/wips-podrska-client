@@ -110,9 +110,21 @@ cargo 27 min. Komprimiran (lzma 9e, slično brotliju) exe ima 8,9 MB; to je uspo
 **Pokretanje izmjereno 4. 11. 2026. u virtualki „Windows 11 Pro”** (VirtualBox, 4 jezgre, 8 GB; exe svježe kopiran u
 `%TEMP%`, pa prvo pokretanje uključuje Defenderov sken). Vrijeme od stvaranja procesa do prikaza prozora, iz zapisnika
 programa (`lagani: početni prozor prikazan N ms nakon pokretanja procesa`): **hladno 1709 ms, toplo 352 / 545 / 479 ms**.
-Prozor je prikazao ID i „Povezano sa serverom WiPS” (jezgra se registrirala na rd.wips.hr). Za usporedbu, Flutter
-verzija pri prvom pokretanju raspakira 80 MB pa učitava Flutter engine; njezino vrijeme još nije izmjereno istom metodom.
-Prozor za odobravanje veze (`--cm`) još nije isproban s pravim spajanjem tehničara.
+Prozor je prikazao ID i „Povezano sa serverom WiPS” (jezgra se registrirala na rd.wips.hr).
+
+Usporedba istom vanjskom metodom (`izmjeri-start.ps1`: od `Start-Process` do prvog vidljivog glavnog prozora, exe svježe
+kopiran u `%TEMP%`, za Flutter obrisan i `%LOCALAPPDATA%\wipspodrska`), ista virtualka, 4. 11. 2026.:
+
+| Pokretanje | Lagani prototip (34,7 MB) | Flutter korisnička verzija (25,6 MB, raspakira 79,8 MB) |
+|---|---|---|
+| 1. hladno | 3,0 s | 10,8 s (raspakiravanje + Defender) |
+| 2. | 0,44 s | 3,8 s |
+| 3. | 0,21 s | 3,3 s |
+| 4. | | 3,0 s |
+
+Lagani se dakle pokreće 3–4 puta brže hladno i oko 10 puta brže toplo. Prozor za odobravanje veze (`--cm`) još nije
+isproban s pravim spajanjem tehničara. Skripte: `mjerenje/posao_win11.ps1` (pokretanje kroz Win+R u virtualki
+„Windows 11 Pro”, dijeljena mapa je tamo `Z:`), `posao_mjerenje.ps1` i `pokreni-mjerenje-vm.ps1` (preko test agenta).
 
 Zaključak o veličini: Rust jezgra sama je ~35 MB nekomprimirano (webrtc, tokio, reqwest s rustls i native-tls,
 kodeci libvpx/aom/opus, i kod za upravljanje tuđim računalom koji korisnička verzija ne koristi). Flutter je na to
