@@ -1,5 +1,7 @@
 # WiPS Udaljena Korisnicka Podrska: klijent
 
+> **Ovaj repo je prototip laganog korisničkog klijenta** (odvojen od `ninoseric/wips-podrska-client`). Analiza, smjer i plan: [`LAGANI.md`](LAGANI.md).
+
 Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0) na fiksiranoj verziji iz `wips/UPSTREAM`, uz WiPS izmjene koje se primjenjuju u CI-ju.
 
 | Što | Gdje |
