@@ -216,3 +216,11 @@ virtualku (mouse_event) ne stiže do prozora; stvarni kotačić na domaćinu rad
 Nije preneseno: lozinka (jednokratna i stalna) jer je odobravanje u korisničkoj verziji zaključano na klik;
 hardverski kodek se ne prikazuje jer ga ovaj build nema (kao i u Flutteru kad ga nema). „Port” i „Vrijeme u
 minutama” mijenjaju se u malom dijalogu umjesto polja s gumbom „Primijeni”.
+
+### Pojednostavljene postavke korisničke verzije (5. 11. 2026.)
+
+Odluka: korisnik u postavkama vidi samo temu, jezik, servis (samo na instaliranoj verziji) i „O programu”.
+Ostale postavke korisniku ne trebaju, a pogrešna promjena (ID, popisi pouzdanih adresa, 2FA, PIN, dopuštenja,
+zaustavljen servis) bi WiPS podršci onemogućila spajanje. Skriveni napredni prikaz za tehničare se ne radi.
+Odluka se donosi po verziji (`hbb_common::config::is_incoming_only()`, conn-type iz `wips/varijante/*.env`):
+verzija koja nije samo za primanje veza i dalje prikazuje sve postavke.

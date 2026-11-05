@@ -8,6 +8,7 @@
 //   LAGANI_KLIK=x,y;w-5;...      klikovi (DIP) ili kotačić (w i broj zareza) nakon 2 s, razmak 1,5 s
 //   LAGANI_DVA=1                 u --cm dvije veze
 //   LAGANI_STANJE=-1|0           stanje veze (1 spremno, 0 spajanje, -1 nedostupno)
+//   LAGANI_PUNO=1                pune postavke (verzija koja nije samo za primanje veza)
 //   LAGANI_POZIV=1               u --cm dolazni glasovni poziv nakon prihvaćanja
 //   LAGANI_TEKST=...             nakon klikova upiše tekst u polje za poruku i pritisne Enter
 #![allow(dead_code, non_snake_case)]

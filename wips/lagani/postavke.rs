@@ -1,6 +1,8 @@
-// Postavke korisničke verzije, kao desktop_setting_page.dart za verziju koja samo prima veze:
-// Općenito (servis, tema, jezik, hardverski kodek, ulaz zvuka, snimanje, ostalo), Sigurnost
-// (dopuštenja, lozinka, 2FA, ID, sigurnost) i O programu. Iste opcije i ista pravila (option2bool,
+// Postavke, kao desktop_setting_page.dart: Općenito (servis, tema, jezik, hardverski kodek, ulaz zvuka,
+// snimanje, ostalo), Sigurnost (dopuštenja, lozinka, 2FA, ID, sigurnost) i O programu.
+// Korisnička verzija (samo prima veze, conn-type incoming) prikazuje samo temu, jezik, servis na
+// instaliranoj verziji i O programu: ostalo korisniku ne treba, a pogrešna postavka (ID, popisi
+// pouzdanih adresa, 2FA, dopuštenja) bi WiPS podršci onemogućila spajanje. Iste opcije i ista pravila (option2bool,
 // bool2option) kao Flutter verzija; vrijednosti čita i upisuje jezgra (ui_interface).
 // Otvara se iz početnog prozora, u istom procesu i istoj niti.
 use std::cell::RefCell;
@@ -224,6 +226,8 @@ struct Stanje {
     installed: bool,
     wallpaper: bool,
     privacy: bool,
+    /// Korisnička verzija: samo tema, jezik, servis (instalirana) i O programu.
+    jednostavno: bool,
 }
 
 thread_local! {
@@ -303,6 +307,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam:
                         installed: ui::is_installed(),
                         wallpaper: ui::support_remove_wallpaper(),
                         privacy: !crate::privacy_mode::get_supported_privacy_mode_impl().is_empty(),
+                        jednostavno: hbb_common::config::is_incoming_only(),
                     };
                     UI.with(|c| {
                         if let Ok(mut g) = c.try_borrow_mut() {
@@ -988,16 +993,16 @@ fn crtaj(s: &mut Stanje) {
     let kartica = s.kartica;
     let scroll = s.scroll;
     let locked = s.installed && !s.otkljucano;
-    let (installed, wallpaper, privacy) = (s.installed, s.wallpaper, s.privacy);
+    let (installed, wallpaper, privacy, jednostavno) = (s.installed, s.wallpaper, s.privacy, s.jednostavno);
     let poz = pozadina();
     let mut visina = 0.0;
     s.w.crtaj(|p| {
-        crtaj_izbornik(p, kartica);
+        crtaj_izbornik(p, kartica, jednostavno);
         let area = rect(NAV_W + 1.0, 0.0, W, H as f32);
         p.set_clip(Some(area));
         let mut y = 20.0 - scroll;
         match kartica {
-            Kartica::Opcenito => opcenito(p, &mut y, installed, wallpaper),
+            Kartica::Opcenito => opcenito(p, &mut y, installed, wallpaper, jednostavno),
             Kartica::Sigurnost => sigurnost(p, &mut y, locked, installed, privacy, &poz),
             Kartica::OProgramu => o_programu(p, &mut y, &poz),
         }
@@ -1011,7 +1016,7 @@ fn crtaj(s: &mut Stanje) {
     }
 }
 
-fn crtaj_izbornik(p: &mut Ploha<A>, kartica: Kartica) {
+fn crtaj_izbornik(p: &mut Ploha<A>, kartica: Kartica, jednostavno: bool) {
     let pal = p.p;
     let f = p.f;
     p.c.fill_round(&rect(0.0, 0.0, NAV_W, H as f32), 0.0, pal.card);
@@ -1024,6 +1029,9 @@ fn crtaj_izbornik(p: &mut Ploha<A>, kartica: Kartica) {
     ];
     let mut y = 76.0;
     for (k, icon, label) in items.iter() {
+        if jednostavno && *k == Kartica::Sigurnost {
+            continue;
+        }
         let r = rect(0.0, y, NAV_W, y + 42.0);
         let sel = *k == kartica;
         if sel {
@@ -1040,9 +1048,10 @@ fn crtaj_izbornik(p: &mut Ploha<A>, kartica: Kartica) {
     }
 }
 
-fn opcenito(p: &mut Ploha<A>, y: &mut f32, installed: bool, wallpaper: bool) {
+fn opcenito(p: &mut Ploha<A>, y: &mut f32, installed: bool, wallpaper: bool, jednostavno: bool) {
     let stopped = get_b("stop-service");
-    if !(ui::get_builtin_option("hide-stop-service") == "Y" && !stopped) {
+    let servis = !(ui::get_builtin_option("hide-stop-service") == "Y" && !stopped);
+    if servis && (installed || !jednostavno) {
         let label = if stopped { tr("Start") } else { tr("Stop") };
         karta(p, y, &tr("Service"), &[Red::Gumb { a: Some(A::Servis), label, icon: None }]);
     }
@@ -1069,6 +1078,9 @@ fn opcenito(p: &mut Ploha<A>, y: &mut f32, installed: bool, wallpaper: bool) {
         .unwrap_or_else(|| tr("Default"));
     let a = if fixed("lang") { None } else { Some(A::Jezik) };
     karta(p, y, &tr("Language"), &[Red::Padajuci { a, value: lang_name }]);
+    if jednostavno {
+        return;
+    }
 
     if ui::has_hwcodec() {
         karta(p, y, &tr("Hardware Codec"), &[opcija("enable-hwcodec", "Enable hardware codec", true)]);
