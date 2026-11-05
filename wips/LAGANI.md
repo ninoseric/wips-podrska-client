@@ -195,3 +195,24 @@ Nije preneseno: opcija pisača u instalaciji (korisnička verzija skriva pisač)
 Zamka testa: exe pokrenut s dijeljene mape `Z:` ne može povisiti prava („The system cannot find the path
 specified”), jer povišeni proces ne vidi mrežni pogon. Za test se exe kopira u Preuzimanja (`ponovi.ps1`).
 Klikovi u virtualki: `mjerenje/klik.ps1 -Klasa <klasa prozora> -Tocke "x,y;..."` (DIP koordinate).
+
+### Sve postavke i ikona sa zecom (5. 11. 2026., CI run 42006865896)
+
+Prozor postavki sada ima isti sadržaj kao Flutter korisnička verzija, s bočnim izbornikom Općenito, Sigurnost i
+O programu. Opcije se čitaju i upisuju istim ključevima i pravilima kao u Flutteru (option2bool, bool2option,
+prilagođeni klijent). Dijalozi za promjenu ID-a, 2FA s QR kodom, Telegram bot, popise pouzdanih IP adresa i
+ID-ova, PIN, port i vrijeme isteka su u `dijalog.rs`; pouzdani uređaji imaju vlastiti popis s brisanjem.
+Zakrpa 0006 uključuje i za `lagani` funkcije jezgre koje su bile samo za Flutter: get_id, get_sound_inputs,
+change_id, check_super_user_permission, PIN i pouzdani uređaji (ipc).
+
+Ikona programa (exe, prozori, traka zadataka, prečaci) je zec sa šeširom i malim crvenim ekranom u svim
+veličinama; ikona u području obavijesti ostaje crveni krug. Exe: 35,8 MB.
+
+Provjereno u virtualki: hrvatski natpisi kao u originalu, svi jezici u izborniku, kvačice se upisuju u jezgru
+(IPC) i ponovno čitaju, ikona na traci zadataka. U probnom okviru: zaključavanje na instaliranoj verziji, 2FA s
+QR kodom i porukom o pogrešnom kodu, provjera novog ID-a, pomicanje kotačićem. Kotačić ubačen skriptom u
+virtualku (mouse_event) ne stiže do prozora; stvarni kotačić na domaćinu radi.
+
+Nije preneseno: lozinka (jednokratna i stalna) jer je odobravanje u korisničkoj verziji zaključano na klik;
+hardverski kodek se ne prikazuje jer ga ovaj build nema (kao i u Flutteru kad ga nema). „Port” i „Vrijeme u
+minutama” mijenjaju se u malom dijalogu umjesto polja s gumbom „Primijeni”.

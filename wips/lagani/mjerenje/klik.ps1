@@ -39,6 +39,13 @@ Start-Sleep -Seconds $Pauza
 $dpi = [K]::GetDpiForWindow($h); if ($dpi -eq 0) { $dpi = 96 }
 $s = $dpi / 96.0
 foreach ($t in $Tocke.Split(';')) {
+  if ($t.StartsWith('w')) {
+    $n = [int]$t.Substring(1)
+    [K]::mouse_event(0x0800, 0, 0, [uint32]([int32]($n * 120) -band 0xFFFFFFFF), [IntPtr]::Zero)
+    Zapisi "kotac $n"
+    Start-Sleep -Milliseconds $Razmak
+    continue
+  }
   $xy = $t.Split(',')
   $p = New-Object K+POINT; $p.X = [int]([double]$xy[0] * $s); $p.Y = [int]([double]$xy[1] * $s)
   [K]::ClientToScreen($h, [ref]$p) | Out-Null
