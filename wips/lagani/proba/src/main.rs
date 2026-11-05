@@ -7,6 +7,7 @@
 //   LAGANI_JEZIK=en              jezik (lokalna opcija "lang")
 //   LAGANI_KLIK=x,y;x,y;...      klikovi (DIP) u prozor nakon 2 s, razmak 1,5 s
 //   LAGANI_DVA=1                 u --cm dvije veze
+//   LAGANI_STANJE=-1|0           stanje veze (1 spremno, 0 spajanje, -1 nedostupno)
 //   LAGANI_POZIV=1               u --cm dolazni glasovni poziv nakon prihvaćanja
 //   LAGANI_TEKST=...             nakon klikova upiše tekst u polje za poruku i pritisne Enter
 #![allow(dead_code, non_snake_case)]
@@ -133,7 +134,10 @@ pub mod ui_interface {
         pub id: String,
     }
     pub fn get_connect_status() -> UiStatus {
-        UiStatus { status_num: 1, id: "121179531".to_owned() }
+        UiStatus {
+            status_num: std::env::var("LAGANI_STANJE").ok().and_then(|v| v.parse().ok()).unwrap_or(1),
+            id: "121179531".to_owned(),
+        }
     }
     pub fn start_option_status_sync() {}
     pub fn get_local_option(key: String) -> String {

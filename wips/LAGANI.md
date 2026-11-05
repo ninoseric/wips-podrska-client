@@ -165,3 +165,33 @@ nakon odobrenja. CM prozor sada prihvaća klik samo ako su pritisak i puštanje 
 Odobravanje bez ruku u virtualki: `mjerenje/odobri.ps1` (čeka prozor klase `WiPSLaganiCm`, klikne „Dopusti”).
 Zamka: u PowerShellu `$null` za `string` parametar P/Invokea postaje prazan niz, pa `FindWindowW` ne nađe ništa;
 treba `[NullString]::Value`. Zbog toga je i ranija vanjska detekcija prozora u `izmjeri-start.ps1` bila nepouzdana.
+
+### Funkcije Flutter korisničke verzije (5. 11. 2026., CI run 41917448592)
+
+Lagano sučelje sada ima sve što korisnička Flutter verzija prikazuje (zakrpe 0004 i 0005, install_page.dart,
+postavke). Exe: 35,6 MB (+0,3 MB). Provjereno u virtualki „Windows 11 Pro” s pravim tehničarom; snimke su u
+`Downloads\WiPSPodrska-lagani\funkcije`.
+
+| Funkcija | Provjera |
+|---|---|
+| Stanja veze, kopiranje ID-a, poveznica wips.hr | virtualka |
+| Redak „Instaliraj” → prozor instalacije → UAC → instalirani program se sam pokrene, prečac na radnoj površini | virtualka |
+| Redak za nadogradnju starije instalacije | probni okvir |
+| Postavke: tema (sustav, svijetla, tamna), jezik (zadano, hrvatski, engleski), O programu (verzija, datum, otisak, ID) | virtualka |
+| Tamna tema i tamna naslovna traka u svim prozorima | virtualka |
+| CM: zahtjev s dozvolama, prekidač dozvole stiže do jezgre (switch_permission) | virtualka |
+| CM: „Prihvati povećanje” → UAC → prenosni servis pokrenut | virtualka |
+| CM: na instaliranoj verziji nema povišenja prava (can_elevate) | virtualka |
+| CM: dopisivanje u oba smjera, prozor se širi ulijevo kao u Flutteru | virtualka |
+| CM: „Prekini vezu”, trajanje veze, smanjivanje nakon prihvaćanja | virtualka |
+| CM: glasovni poziv, kartice za više veza, „Zatvori” za odspojenu vezu | probni okvir |
+| Metapodaci exe-a: CompanyName WiPS, OriginalFilename WiPSPodrska.exe (vatrozid prikazuje izdavača) | CI i virtualka |
+
+Jezik je kao u originalu: bez postavke prati jezik Windowsa, pa je na engleskom Windowsu sučelje englesko.
+
+Nije preneseno: opcija pisača u instalaciji (korisnička verzija skriva pisač), popis prenesenih datoteka u CM-u
+(prijenos radi kroz jezgru), kartica „Sigurnost” u postavkama (odobravanje je zaključano na klik), opisi gumba.
+
+Zamka testa: exe pokrenut s dijeljene mape `Z:` ne može povisiti prava („The system cannot find the path
+specified”), jer povišeni proces ne vidi mrežni pogon. Za test se exe kopira u Preuzimanja (`ponovi.ps1`).
+Klikovi u virtualki: `mjerenje/klik.ps1 -Klasa <klasa prozora> -Tocke "x,y;..."` (DIP koordinate).

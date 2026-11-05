@@ -36,6 +36,8 @@ pub mod ikona {
 
 pub struct Fonts {
     pub title: IDWriteTextFormat,
+    /// Naslov koji ne stane u jedan redak (npr. „Podrška trenutno nije dostupna”).
+    pub title_sm: IDWriteTextFormat,
     pub status: IDWriteTextFormat,
     pub label: IDWriteTextFormat,
     pub id: IDWriteTextFormat,
@@ -63,6 +65,7 @@ impl Fonts {
     pub fn new(g: &Gfx) -> Result<Fonts> {
         Ok(Fonts {
             title: g.font(800, 22.0, Align::Center)?,
+            title_sm: g.font(800, 18.0, Align::Center)?,
             status: g.font_vcenter(600, 13.0, Align::Left)?,
             label: g.font(600, 12.5, Align::Left)?,
             id: g.font_vcenter(700, 24.0, Align::Center)?,

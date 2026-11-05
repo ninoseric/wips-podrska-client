@@ -281,7 +281,8 @@ fn crtaj(s: &mut Stanje) {
         } else {
             tr("Support is not available")
         };
-        p.text(&title, &f.title, &rect(16.0, 114.0, W - 16.0, 146.0), pal.text);
+        let title_font = if p.width(&title, &f.title) > W - 32.0 { &f.title_sm } else { &f.title };
+        p.text(&title, title_font, &rect(16.0, 116.0, W - 16.0, 146.0), pal.text);
         let line = if status > 0 {
             Some((tr("Connected to the WiPS server"), pal.ok))
         } else if status < 0 {
