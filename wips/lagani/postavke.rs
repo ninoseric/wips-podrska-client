@@ -30,6 +30,7 @@ use crate::ui_interface as ui;
 const CLASS: &str = "WiPSLaganiPostavke";
 const W: f32 = 760.0;
 const H: i32 = 620;
+const H_JEDNOSTAVNO: i32 = 500;
 const NAV_W: f32 = 210.0;
 const CX: f32 = NAV_W + 24.0;
 const CR: f32 = W - 28.0;
@@ -255,7 +256,8 @@ pub unsafe fn otvori(owner: HWND) {
         pos: Pos::Center,
         owner,
         width: W as i32,
-        height: H,
+        // Korisnička verzija ima malo sadržaja (servis, tema, jezik ili O programu) pa je prozor niži.
+        height: if hbb_common::config::is_incoming_only() { H_JEDNOSTAVNO } else { H },
         scale: win32::scale(),
         background: super::tema::pal().bg.0,
         topmost: false,
