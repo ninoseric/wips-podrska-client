@@ -10,7 +10,8 @@ use windows::Win32::Graphics::Direct2D::Common::{
     D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_PIXEL_FORMAT, D2D_RECT_F, D2D_SIZE_U,
 };
 use windows::Win32::Graphics::Direct2D::{
-    D2D1CreateFactory, ID2D1Bitmap, ID2D1Factory, ID2D1HwndRenderTarget, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+    D2D1CreateFactory, ID2D1Bitmap, ID2D1Factory, ID2D1HwndRenderTarget, D2D1_ANTIALIAS_MODE_ALIASED,
+    D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
     D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, D2D1_BITMAP_PROPERTIES, D2D1_DRAW_TEXT_OPTIONS_NONE,
     D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_HWND_RENDER_TARGET_PROPERTIES, D2D1_PRESENT_OPTIONS_NONE,
     D2D1_RENDER_TARGET_PROPERTIES, D2D1_ROUNDED_RECT,
@@ -184,6 +185,11 @@ impl Gfx {
         }
     }
 
+    /// Širina i visina teksta prelomljenog na `max_w`, bez crtanja (raspored prije prvog okvira).
+    pub fn measure(&self, text: &str, font: &IDWriteTextFormat, max_w: f32) -> (f32, f32) {
+        measure_with(&self.dw, text, font, max_w)
+    }
+
     pub fn resize(&mut self) {
         if let Some(t) = &self.target {
             unsafe {
@@ -284,6 +290,19 @@ impl Gfx {
     }
 }
 
+fn measure_with(dw: &IDWriteFactory5, text: &str, font: &IDWriteTextFormat, max_w: f32) -> (f32, f32) {
+    let w: Vec<u16> = text.encode_utf16().collect();
+    unsafe {
+        if let Ok(layout) = dw.CreateTextLayout(&w, font, max_w, 10_000.0) {
+            let mut m = DWRITE_TEXT_METRICS::default();
+            if layout.GetMetrics(&mut m).is_ok() {
+                return (m.widthIncludingTrailingWhitespace, m.height);
+            }
+        }
+    }
+    (0.0, 0.0)
+}
+
 unsafe fn set_align(f: &IDWriteTextFormat, align: Align) -> Result<()> {
     f.SetTextAlignment(match align {
         Align::Left => DWRITE_TEXT_ALIGNMENT_LEADING,
@@ -370,16 +389,40 @@ impl<'a> Canvas<'a> {
 
     /// Širina i visina teksta prelomljenog na `max_w`.
     pub fn measure(&self, text: &str, font: &IDWriteTextFormat, max_w: f32) -> (f32, f32) {
-        let w: Vec<u16> = text.encode_utf16().collect();
+        measure_with(self.dw, text, font, max_w)
+    }
+
+    /// Crni kvadratići QR koda na bijeloj podlozi s rubom od četiri modula.
+    pub fn qr(&self, r: &D2D_RECT_F, matrix: &[Vec<bool>]) {
+        let n = matrix.len();
+        if n == 0 {
+            return;
+        }
+        self.fill_round(r, 0.0, Color(0xFFFFFF));
+        let cell = ((r.right - r.left) / (n as f32 + 8.0)).floor().max(1.0);
+        let size = cell * n as f32;
+        let x0 = (r.left + (r.right - r.left - size) / 2.0).round();
+        let y0 = (r.top + (r.bottom - r.top - size) / 2.0).round();
         unsafe {
-            if let Ok(layout) = self.dw.CreateTextLayout(&w, font, max_w, 10_000.0) {
-                let mut m = DWRITE_TEXT_METRICS::default();
-                if layout.GetMetrics(&mut m).is_ok() {
-                    return (m.widthIncludingTrailingWhitespace, m.height);
+            // Bez zaglađivanja: susjedni moduli se inače razdvoje tankim svijetlim crtama.
+            self.t.SetAntialiasMode(D2D1_ANTIALIAS_MODE_ALIASED);
+            if let Ok(b) = self.t.CreateSolidColorBrush(&Color(0x000000).f(), None) {
+                for (y, row) in matrix.iter().enumerate() {
+                    for (x, on) in row.iter().enumerate() {
+                        if *on {
+                            let c = rect(
+                                x0 + x as f32 * cell,
+                                y0 + y as f32 * cell,
+                                x0 + (x + 1) as f32 * cell,
+                                y0 + (y + 1) as f32 * cell,
+                            );
+                            self.t.FillRectangle(&c, &b);
+                        }
+                    }
                 }
             }
+            self.t.SetAntialiasMode(D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
         }
-        (0.0, 0.0)
     }
 
     pub fn push_clip(&self, r: &D2D_RECT_F) {

@@ -32,6 +32,8 @@ pub mod ikona {
     pub const DISCONNECT: char = '\u{E711}';
     pub const PHONE: char = '\u{E717}';
     pub const FOLDER: char = '\u{E838}';
+    pub const CHEVRON: char = '\u{E70D}';
+    pub const LOCK: char = '\u{E72E}';
 }
 
 pub struct Fonts {

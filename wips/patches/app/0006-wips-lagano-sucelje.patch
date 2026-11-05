@@ -57,6 +57,37 @@ index 30e486a..a9ee844 100644
      build_manifest();
      #[cfg(windows)]
      build_windows();
+diff --git a/src/ipc.rs b/src/ipc.rs
+index 44a1c8d..be90212 100644
+--- a/src/ipc.rs
++++ b/src/ipc.rs
+@@ -1864,7 +1864,7 @@ async fn set_permanent_password_with_ack_async(v: String) -> ResultType<bool> {
+     Ok(false)
+ }
+ 
+-#[cfg(feature = "flutter")]
++#[cfg(any(feature = "flutter", feature = "lagani"))]
+ #[cfg(not(any(target_os = "android", target_os = "ios")))]
+ pub fn set_unlock_pin(v: String, translate: bool) -> ResultType<()> {
+     let v = v.trim().to_owned();
+@@ -1891,7 +1891,7 @@ pub fn set_unlock_pin(v: String, translate: bool) -> ResultType<()> {
+     set_config("unlock-pin", v)
+ }
+ 
+-#[cfg(feature = "flutter")]
++#[cfg(any(feature = "flutter", feature = "lagani"))]
+ #[cfg(not(any(target_os = "android", target_os = "ios")))]
+ pub fn get_unlock_pin() -> String {
+     if let Ok(Some(v)) = get_config("unlock-pin") {
+@@ -1902,7 +1902,7 @@ pub fn get_unlock_pin() -> String {
+     }
+ }
+ 
+-#[cfg(feature = "flutter")]
++#[cfg(any(feature = "flutter", feature = "lagani"))]
+ #[cfg(not(any(target_os = "android", target_os = "ios")))]
+ pub async fn trusted_devices(request: authority::Request) -> ResultType<String> {
+     const TIMEOUT_MS: u64 = 1000;
 diff --git a/src/lib.rs b/src/lib.rs
 index f6e48a1..0e035e6 100644
 --- a/src/lib.rs
@@ -108,3 +139,61 @@ index 64e1370..ab9af5a 100644
  #[inline]
  pub fn close_voice_call(id: i32) {
      if let Some(client) = CLIENTS.read().unwrap().get(&id) {
+diff --git a/src/ui_interface.rs b/src/ui_interface.rs
+index 995d6d0..23c971b 100644
+--- a/src/ui_interface.rs
++++ b/src/ui_interface.rs
+@@ -368,7 +368,7 @@ pub fn test_if_valid_server(host: String, test_with_proxy: bool) -> String {
+ }
+ 
+ #[inline]
+-#[cfg(feature = "flutter")]
++#[cfg(any(feature = "flutter", feature = "lagani"))]
+ #[cfg(not(any(target_os = "android", target_os = "ios")))]
+ pub fn get_sound_inputs() -> Vec<String> {
+     let mut a = Vec::new();
+@@ -895,7 +895,7 @@ pub fn reset_async_job_status() {
+     *ASYNC_JOB_STATUS.lock().unwrap() = get_init_async_job_status();
+ }
+ 
+-#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
++#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter", feature = "lagani"))]
+ #[inline]
+ pub fn change_id(id: String) {
+     reset_async_job_status();
+@@ -1245,7 +1245,7 @@ pub fn is_root() -> bool {
+     false
+ }
+ 
+-#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
++#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter", feature = "lagani"))]
+ #[inline]
+ pub fn check_super_user_permission() -> bool {
+     #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
+@@ -1735,7 +1735,7 @@ pub fn check_hwcodec() {
+     }
+ }
+ 
+-#[cfg(feature = "flutter")]
++#[cfg(any(feature = "flutter", feature = "lagani"))]
+ pub fn get_unlock_pin() -> String {
+     #[cfg(any(target_os = "android", target_os = "ios"))]
+     return String::default();
+@@ -1743,7 +1743,7 @@ pub fn get_unlock_pin() -> String {
+     return ipc::get_unlock_pin();
+ }
+ 
+-#[cfg(feature = "flutter")]
++#[cfg(any(feature = "flutter", feature = "lagani"))]
+ pub fn set_unlock_pin(pin: String) -> String {
+     #[cfg(any(target_os = "android", target_os = "ios"))]
+     return String::default();
+@@ -1754,7 +1754,7 @@ pub fn set_unlock_pin(pin: String) -> String {
+     }
+ }
+ 
+-#[cfg(feature = "flutter")]
++#[cfg(any(feature = "flutter", feature = "lagani"))]
+ pub fn max_encrypt_len() -> usize {
+     hbb_common::config::ENCRYPT_MAX_LEN
+ }

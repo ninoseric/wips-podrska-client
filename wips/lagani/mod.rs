@@ -4,10 +4,12 @@
 // Jezgra (server, IPC, odobravanje veze, instalacija, snimanje ekrana) ostaje RustDeskova: ovdje su prozori.
 mod cm;
 mod d2d;
+mod dijalog;
 mod glavni;
 mod instalacija;
 mod izgled;
 mod postavke;
+mod sustav;
 mod tema;
 mod ui;
 mod win32;

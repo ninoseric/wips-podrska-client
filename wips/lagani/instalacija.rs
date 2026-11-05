@@ -12,14 +12,6 @@ use winapi::um::winuser::{
     WM_ERASEBKGND, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSELEAVE, WM_MOUSEMOVE, WM_PAINT, WM_SETCURSOR,
     WM_SETTINGCHANGE, WM_SIZE,
 };
-use windows::core::HSTRING;
-use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
-};
-use windows::Win32::UI::Shell::{
-    FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, FOS_FORCEFILESYSTEM, FOS_PICKFOLDERS,
-    SIGDN_FILESYSPATH,
-};
 
 use super::d2d::rect;
 use super::izgled;
@@ -166,7 +158,7 @@ unsafe fn on_action(hwnd: HWND, a: A) {
     match a {
         A::Putanja => {
             let cur = with_ui(|s| s.path.clone()).unwrap_or_default();
-            if let Some(dir) = izaberi_mapu(hwnd, &cur) {
+            if let Some(dir) = super::sustav::izaberi_mapu(hwnd, &cur) {
                 let path = Path::new(&dir).join(crate::get_app_name());
                 with_ui(|s| s.path = path.to_string_lossy().into_owned());
             }
@@ -220,25 +212,6 @@ fn mapa_nije_prazna(path: &str) -> bool {
     std::fs::read_dir(path)
         .map(|mut d| d.next().is_some())
         .unwrap_or(false)
-}
-
-unsafe fn izaberi_mapu(owner: HWND, current: &str) -> Option<String> {
-    let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
-    let dlg: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
-    let opts = dlg.GetOptions().ok()?;
-    dlg.SetOptions(opts | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM).ok()?;
-    if let Some(parent) = Path::new(current).parent() {
-        let p = HSTRING::from(parent.as_os_str());
-        if let Ok(item) = SHCreateItemFromParsingName::<_, _, IShellItem>(&p, None) {
-            let _ = dlg.SetFolder(&item);
-        }
-    }
-    dlg.Show(Some(windows::Win32::Foundation::HWND(owner as *mut _))).ok()?;
-    let item = dlg.GetResult().ok()?;
-    let name = item.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
-    let s = name.to_string().ok();
-    CoTaskMemFree(Some(name.0 as *const _));
-    s
 }
 
 fn crtaj(s: &mut Stanje) {

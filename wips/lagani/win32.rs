@@ -5,6 +5,7 @@ use std::ptr::{null, null_mut};
 
 use winapi::shared::minwindef::{FILETIME, HINSTANCE, LPARAM};
 use winapi::shared::windef::{HICON, HWND, RECT};
+use winapi::um::winnt::LPCWSTR;
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::processthreadsapi::{GetCurrentProcess, GetProcessTimes};
 use winapi::um::shellapi::{ExtractIconW, ShellExecuteW};
@@ -13,11 +14,11 @@ use winapi::um::wingdi::{CreateSolidBrush, GetDeviceCaps, LOGPIXELSY};
 use winapi::um::winuser::{
     AdjustWindowRectEx, CreateWindowExW, DispatchMessageW, GetDC, GetMessageW, GetSystemMetrics,
     GetWindowLongW, GetWindowRect, InvalidateRect, LoadCursorW, LoadIconW,
-    MessageBoxW, RegisterClassW, ReleaseDC, SetForegroundWindow, SetWindowPos, SetWindowTextW,
+    LoadImageW, MessageBoxW, RegisterClassExW, ReleaseDC, SetForegroundWindow, SetWindowPos, SetWindowTextW,
     ShowWindow, SystemParametersInfoW, TrackMouseEvent, TranslateMessage, UpdateWindow, CS_HREDRAW,
     CS_VREDRAW, GWL_EXSTYLE, GWL_STYLE, IDC_ARROW, IDI_APPLICATION, IDYES, MB_ICONINFORMATION,
-    MB_ICONQUESTION, MB_OK, MB_YESNO, MSG, SM_CXSCREEN, SM_CYSCREEN, SPI_GETWORKAREA, SWP_NOACTIVATE,
-    SWP_NOZORDER, SW_RESTORE, SW_SHOW, TME_LEAVE, TRACKMOUSEEVENT, WNDCLASSW, WNDPROC, WS_CAPTION,
+    MB_ICONQUESTION, MB_OK, MB_YESNO, MSG, SM_CXICON, SM_CXSCREEN, SM_CXSMICON, SM_CYICON, SM_CYSCREEN, SM_CYSMICON, IMAGE_ICON, LR_DEFAULTCOLOR, SPI_GETWORKAREA, SWP_NOACTIVATE,
+    SWP_NOZORDER, SW_RESTORE, SW_SHOW, TME_LEAVE, TRACKMOUSEEVENT, WNDCLASSEXW, WNDPROC, WS_CAPTION,
     WS_EX_TOPMOST, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU,
 };
 
@@ -121,19 +122,21 @@ pub unsafe fn create_window(spec: &WindowSpec) -> HWND {
     let hinst = hinstance();
     let c = spec.background;
     let bgr = ((c & 0xFF) << 16) | (c & 0xFF00) | ((c >> 16) & 0xFF);
-    let wc = WNDCLASSW {
+    let wc = WNDCLASSEXW {
+        cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
         style: CS_HREDRAW | CS_VREDRAW,
         lpfnWndProc: spec.wndproc,
         cbClsExtra: 0,
         cbWndExtra: 0,
         hInstance: hinst,
-        hIcon: app_icon(hinst),
+        hIcon: app_icon(hinst, false),
         hCursor: LoadCursorW(null_mut(), IDC_ARROW),
         hbrBackground: CreateSolidBrush(bgr),
         lpszMenuName: null(),
         lpszClassName: class.as_ptr(),
+        hIconSm: app_icon(hinst, true),
     };
-    RegisterClassW(&wc);
+    RegisterClassExW(&wc);
     let style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     let ex_style = if spec.topmost { WS_EX_TOPMOST } else { 0 };
     let mut rc = RECT {
@@ -178,8 +181,19 @@ pub unsafe fn create_window(spec: &WindowSpec) -> HWND {
     hwnd
 }
 
-/// Ikona iz samog exe-a (ugrađuje je build.rs preko winres); ako je nema, standardna ikona programa.
-unsafe fn app_icon(hinst: HINSTANCE) -> HICON {
+/// Ikona iz samog exe-a (resurs 1, ugrađuje ga build.rs preko winres): mala za naslovnu traku, velika za
+/// traku zadataka i Alt+Tab, svaka u svojoj veličini iz .ico datoteke. Bez resursa (probni okvir) prva ikona
+/// exe-a, inače standardna ikona programa.
+unsafe fn app_icon(hinst: HINSTANCE, small: bool) -> HICON {
+    let (cx, cy) = if small {
+        (GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON))
+    } else {
+        (GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON))
+    };
+    let icon = LoadImageW(hinst, 1 as LPCWSTR, IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR) as HICON;
+    if !icon.is_null() {
+        return icon;
+    }
     if let Ok(exe) = std::env::current_exe() {
         let path = wide(&exe.to_string_lossy());
         let icon = ExtractIconW(hinst, path.as_ptr(), 0);

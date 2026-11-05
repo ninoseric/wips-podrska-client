@@ -4,9 +4,9 @@
 Pokretanje (iz korijena repozitorija):  python3 -P wips/branding/generiraj-ikone.py
 Rezultat ide u wips/branding/generirano/ i commita se; CI ga samo kopira (apply-branding.sh).
 
-Male veličine (do 48 px) koriste samo crveni krug s monitorom: cijeli logo (fotografija zeca)
-na 16-32 px postaje tamna mrlja i nestaje na tamnoj traci zadataka. Velike veličine koriste
-cijeli logo s tankim bijelim obrubom, da se vidi i na tamnoj pozadini.
+Ikona programa (exe, prozori, traka zadataka, prečaci) je u svim veličinama cijeli logo (zec sa
+šeširom i malim crvenim ekranom) s bijelim obrubom, da se vidi i na tamnoj traci zadataka; tako je
+odlučio korisnik 5. 11. 2026. Ikona u području obavijesti (tray.ico) ostaje crveni krug s monitorom.
 """
 from pathlib import Path
 
@@ -73,7 +73,7 @@ def main():
     def rs(im, s):
         return im.resize((s, s), Image.LANCZOS)
 
-    app = {s: rs(badge, s) for s in SMALL} | {s: rs(full_outlined, s) for s in LARGE}
+    app = {s: rs(full_outlined, s) for s in SMALL + LARGE}
     save_ico(OUT / "app.ico", app)
     save_ico(OUT / "tray.ico", {s: rs(badge, s) for s in SMALL + [64]})
     rs(badge, 256).save(OUT / "icon.png")

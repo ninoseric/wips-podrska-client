@@ -45,6 +45,11 @@ impl<A: Copy + PartialEq> Prozor<A> {
         })
     }
 
+    /// Područje elementa iz zadnjeg okvira (npr. za položaj izbornika ispod padajućeg polja).
+    pub fn rect_of(&self, a: A) -> Option<D2D_RECT_F> {
+        self.hits.iter().rev().find(|(h, _)| *h == a).map(|(_, r)| *r)
+    }
+
     fn hit(&self, x: f32, y: f32) -> Option<A> {
         self.hits
             .iter()
@@ -115,8 +120,10 @@ impl<A: Copy + PartialEq> Prozor<A> {
                 p: pal,
                 hover,
                 hits: Vec::new(),
+                clip: None,
             };
             draw(&mut p);
+            p.set_clip(None);
             hits = p.hits;
         });
         if let Err(e) = res {
@@ -139,11 +146,29 @@ pub struct Ploha<'a, A> {
     pub p: Pal,
     hover: Option<A>,
     hits: Vec<(A, D2D_RECT_F)>,
+    /// Vidljivo područje sadržaja koji se pomiče: klik izvan njega ne vrijedi.
+    clip: Option<D2D_RECT_F>,
 }
 
 impl<'a, A: Copy + PartialEq> Ploha<'a, A> {
     pub fn hit(&mut self, r: D2D_RECT_F, a: A) {
-        self.hits.push((a, r));
+        let r = match self.clip {
+            Some(c) => rect(r.left.max(c.left), r.top.max(c.top), r.right.min(c.right), r.bottom.min(c.bottom)),
+            None => r,
+        };
+        if r.right > r.left && r.bottom > r.top {
+            self.hits.push((a, r));
+        }
+    }
+
+    pub fn set_clip(&mut self, clip: Option<D2D_RECT_F>) {
+        if self.clip.is_some() {
+            self.c.pop_clip();
+        }
+        if let Some(c) = &clip {
+            self.c.push_clip(c);
+        }
+        self.clip = clip;
     }
 
     pub fn is_hover(&self, a: A) -> bool {
@@ -248,6 +273,77 @@ impl<'a, A: Copy + PartialEq> Ploha<'a, A> {
         self.c
             .text(label, &self.f.body, &rect(r.left + 28.0, r.top, r.right, r.bottom), self.p.text);
         self.hit(r, a);
+    }
+
+    /// Kvačica koja može biti onemogućena (None): tada je siva i bez klika.
+    pub fn kvacica_opt(&mut self, r: D2D_RECT_F, a: Option<A>, on: bool, label: &str) {
+        let Some(a) = a else {
+            let cy = (r.top + r.bottom) / 2.0;
+            let b = rect(r.left, cy - 9.0, r.left + 18.0, cy + 9.0);
+            if on {
+                self.c.fill_round(&b, 4.0, self.p.border);
+                self.c.icon(ikona::CHECK, &self.f.icon14, &b, self.p.muted);
+            } else {
+                self.c.fill_round(&b, 4.0, self.p.chip);
+                self.c.stroke_round(&b, 4.0, self.p.border, 1.5);
+            }
+            self.c
+                .text(label, &self.f.body, &rect(r.left + 28.0, r.top, r.right, r.bottom), self.p.muted);
+            return;
+        };
+        self.kvacica(r, a, on, label);
+    }
+
+    /// Radio gumb s natpisom; klik je na cijelom retku.
+    pub fn radio(&mut self, r: D2D_RECT_F, a: Option<A>, on: bool, label: &str) {
+        let cy = (r.top + r.bottom) / 2.0;
+        let cx = r.left + 9.0;
+        let enabled = a.is_some();
+        let ring = if !enabled {
+            self.p.border
+        } else if on {
+            self.p.primary
+        } else if a.map(|a| self.is_hover(a)).unwrap_or(false) {
+            self.p.muted
+        } else {
+            self.p.border
+        };
+        self.c.circle(cx, cy, 9.0, ring);
+        self.c.circle(cx, cy, 7.5, self.p.card);
+        if on {
+            self.c.circle(cx, cy, 4.5, if enabled { self.p.primary } else { self.p.muted });
+        }
+        let color = if enabled { self.p.text } else { self.p.muted };
+        self.c
+            .text(label, &self.f.body, &rect(r.left + 28.0, r.top, r.right, r.bottom), color);
+        if let Some(a) = a {
+            self.hit(r, a);
+        }
+    }
+
+    /// Padajuće polje: vrijednost i strelica; klik otvara izbornik (poziva ga prozor).
+    pub fn padajuci(&mut self, r: D2D_RECT_F, a: Option<A>, value: &str) {
+        let enabled = a.is_some();
+        let hov = a.map(|a| self.is_hover(a)).unwrap_or(false);
+        self.c.fill_round(&r, 8.0, if enabled { self.p.card } else { self.p.chip });
+        self.c
+            .stroke_round(&r, 8.0, if hov { self.p.muted } else { self.p.border }, 1.0);
+        let color = if enabled { self.p.text } else { self.p.muted };
+        self.c.text(
+            value,
+            &self.f.body_line,
+            &rect(r.left + 14.0, r.top, r.right - 36.0, r.bottom),
+            color,
+        );
+        self.c.icon(
+            ikona::CHEVRON,
+            &self.f.icon14,
+            &rect(r.right - 34.0, r.top, r.right - 10.0, r.bottom),
+            self.p.muted,
+        );
+        if let Some(a) = a {
+            self.hit(r, a);
+        }
     }
 
     /// Izbor jedne od mogućnosti (tema, jezik).

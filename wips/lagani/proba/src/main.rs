@@ -5,7 +5,7 @@
 // Varijable okoline:
 //   LAGANI_TEMA=dark|light       tema (lokalna opcija "theme")
 //   LAGANI_JEZIK=en              jezik (lokalna opcija "lang")
-//   LAGANI_KLIK=x,y;x,y;...      klikovi (DIP) u prozor nakon 2 s, razmak 1,5 s
+//   LAGANI_KLIK=x,y;w-5;...      klikovi (DIP) ili kotačić (w i broj zareza) nakon 2 s, razmak 1,5 s
 //   LAGANI_DVA=1                 u --cm dvije veze
 //   LAGANI_STANJE=-1|0           stanje veze (1 spremno, 0 spajanje, -1 nedostupno)
 //   LAGANI_POZIV=1               u --cm dolazni glasovni poziv nakon prihvaćanja
@@ -110,15 +110,22 @@ pub mod lang {
     }
 }
 
-pub mod ipc {
-    pub fn get_id() -> String {
-        "121179531".to_owned()
+pub mod common {
+    pub fn is_custom_client() -> bool {
+        true
     }
 }
 
 pub mod platform {
     pub fn quit_gui() {
         std::process::exit(0);
+    }
+    pub struct WallPaperRemover;
+    impl WallPaperRemover {
+        pub fn new() -> Result<Self, String> {
+            println!("proba: WallPaperRemover::new");
+            Ok(WallPaperRemover)
+        }
     }
 }
 
@@ -128,7 +135,56 @@ pub mod privacy_mode {
     }
 }
 
+pub mod trusted_devices {
+    pub const TOKEN_BYTES: usize = 4;
+    pub mod authority {
+        pub enum Request {
+            List,
+            Remove(Vec<[u8; super::TOKEN_BYTES]>),
+            Clear,
+        }
+    }
+}
+
+pub mod ipc {
+    pub fn get_id() -> String {
+        "121179531".to_owned()
+    }
+    pub async fn trusted_devices(request: crate::trusted_devices::authority::Request) -> Result<String, String> {
+        use crate::trusted_devices::authority::Request;
+        match request {
+            Request::List => Ok(r#"{"devices":[{"record_id":[1,2,3,4],"time":2,"expires_at":0,"id":"987654321","name":"Tehničar","platform":"Windows"},{"record_id":[5,6,7,8],"time":1,"expires_at":1893456000000,"id":"123456789","name":"Ivan","platform":"Windows"}]}"#.to_owned()),
+            Request::Remove(ids) => {
+                println!("proba: trusted remove {}", ids.len());
+                Ok(String::new())
+            }
+            Request::Clear => {
+                println!("proba: trusted clear");
+                Ok(String::new())
+            }
+        }
+    }
+}
+
+static SERVER: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+
+fn server<R>(f: impl FnOnce(&mut HashMap<String, String>) -> R) -> R {
+    let mut g = SERVER.lock().unwrap();
+    let m = g.get_or_insert_with(|| {
+        let mut m = HashMap::new();
+        m.insert("approve-mode".to_owned(), "click".to_owned());
+        m.insert("enable-trusted-devices".to_owned(), "Y".to_owned());
+        if std::env::var("LAGANI_2FA").is_ok() {
+            m.insert("2fa".to_owned(), "x".to_owned());
+        }
+        m
+    });
+    f(m)
+}
+
 pub mod ui_interface {
+    use super::*;
+
     pub struct UiStatus {
         pub status_num: i32,
         pub id: String,
@@ -144,16 +200,102 @@ pub mod ui_interface {
         super::opcija(&key)
     }
     pub fn set_local_option(key: String, value: String) {
+        println!("proba: set_local_option({}, {:?})", key, value);
+        let _ = super::opcija("");
         let mut g = super::OPCIJE.lock().unwrap();
         if let Some(m) = g.as_mut() {
             m.insert(key, value);
         }
     }
+    pub fn get_option<T: AsRef<str>>(key: T) -> String {
+        server(|m| m.get(key.as_ref()).cloned().unwrap_or_default())
+    }
+    pub fn set_option(key: String, value: String) {
+        println!("proba: set_option({}, {:?})", key, value);
+        server(|m| {
+            if value.is_empty() {
+                m.remove(&key);
+            } else {
+                m.insert(key, value);
+            }
+        });
+    }
+    pub fn is_option_fixed(key: &str) -> bool {
+        key == "approve-mode"
+    }
     pub fn get_builtin_option(_key: &str) -> String {
         String::new()
     }
-    pub fn get_option<T: AsRef<str>>(key: T) -> String {
-        if key.as_ref() == "approve-mode" { "click".to_owned() } else { String::new() }
+    pub fn get_langs() -> String {
+        r#"[["en","English (en)"],["hr","Hrvatski (hr)"],["de","Deutsch (de)"]]"#.to_owned()
+    }
+    pub fn get_sound_inputs() -> Vec<String> {
+        vec!["Mikrofon (Realtek)".to_owned()]
+    }
+    pub fn video_save_directory(_root: bool) -> String {
+        r"C:\Users\korisnik\Videos\WiPSPodrska".to_owned()
+    }
+    pub fn support_remove_wallpaper() -> bool {
+        true
+    }
+    pub fn has_hwcodec() -> bool {
+        false
+    }
+    pub fn check_hwcodec() {}
+    pub fn has_valid_2fa() -> bool {
+        !get_option("2fa").is_empty()
+    }
+    pub fn generate2fa() -> String {
+        "otpauth://totp/WiPSPodrska:121179531?secret=JBSWY3DPEHPK3PXP&issuer=WiPSPodrska".to_owned()
+    }
+    pub fn verify2fa(code: String) -> bool {
+        let ok = code == "123456";
+        if ok {
+            set_option("2fa".to_owned(), "x".to_owned());
+        }
+        ok
+    }
+    pub fn has_valid_bot() -> bool {
+        !get_option("bot").is_empty()
+    }
+    pub fn verify_bot(token: String) -> String {
+        if token == "ok" {
+            set_option("bot".to_owned(), "x".to_owned());
+            String::new()
+        } else {
+            "Invalid token".to_owned()
+        }
+    }
+    static JOB: Mutex<String> = Mutex::new(String::new());
+    pub fn change_id(id: String) {
+        *JOB.lock().unwrap() = " ".to_owned();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(800));
+            *JOB.lock().unwrap() = if id.starts_with("wips") { String::new() } else { "Not available".to_owned() };
+        });
+    }
+    pub fn get_async_job_status() -> String {
+        JOB.lock().unwrap().clone()
+    }
+    pub fn check_super_user_permission() -> bool {
+        println!("proba: check_super_user_permission");
+        true
+    }
+    pub fn get_unlock_pin() -> String {
+        String::new()
+    }
+    pub fn set_unlock_pin(pin: String) -> String {
+        if pin.len() < 4 {
+            "Requires at least {4} characters".to_owned()
+        } else {
+            String::new()
+        }
+    }
+    pub fn is_share_rdp() -> bool {
+        false
+    }
+    pub fn set_share_rdp(enable: bool) {
+        println!("proba: set_share_rdp({})", enable);
     }
     pub fn get_fingerprint() -> String {
         "a1b2 c3d4 e5f6 0718 293a 4b5c 6d7e 8f90 a1b2 c3d4 e5f6 0718 293a 4b5c 6d7e 8f90".to_owned()
@@ -171,7 +313,7 @@ pub mod ui_interface {
         println!("proba: update_me");
     }
     pub fn install_path() -> String {
-        "C:\\Program Files\\WiPSPodrska".to_owned()
+        r"C:\Program Files\WiPSPodrska".to_owned()
     }
     pub fn install_options() -> String {
         "{}".to_owned()
@@ -311,6 +453,7 @@ fn klikovi() {
         use winapi::um::winuser::*;
         std::thread::sleep(std::time::Duration::from_millis(2000));
         for par in spec.split(';') {
+            let kotac = par.trim().strip_prefix('w').and_then(|v| v.parse::<i32>().ok());
             let mut it = par.split(',').map(|v| v.trim().parse::<f32>().unwrap_or(0.0));
             let (x, y) = (it.next().unwrap_or(0.0), it.next().unwrap_or(0.0));
             let pid = std::process::id();
@@ -329,18 +472,35 @@ fn klikovi() {
                 let dpi = windows::Win32::UI::HiDpi::GetDpiForWindow(windows::Win32::Foundation::HWND(found as *mut _));
                 let s = dpi as f32 / 96.0;
                 let lp = (((y * s) as isize) << 16) | ((x * s) as isize & 0xFFFF);
-                PostMessageW(found, WM_MOUSEMOVE, 0, lp);
-                PostMessageW(found, WM_LBUTTONDOWN, 1, lp);
-                PostMessageW(found, WM_LBUTTONUP, 0, lp);
-                println!("proba: klik {},{}", x, y);
+                if let Some(n) = kotac {
+                    let delta = ((n * 120) as i16 as u16 as usize) << 16;
+                    PostMessageW(found, WM_MOUSEWHEEL, delta, 0);
+                    println!("proba: kotac {}", n);
+                } else {
+                    PostMessageW(found, WM_MOUSEMOVE, 0, lp);
+                    PostMessageW(found, WM_LBUTTONDOWN, 1, lp);
+                    PostMessageW(found, WM_LBUTTONUP, 0, lp);
+                    println!("proba: klik {},{}", x, y);
+                }
             }
             std::thread::sleep(std::time::Duration::from_millis(1500));
         }
         if let Ok(tekst) = std::env::var("LAGANI_TEKST") {
-            let class: Vec<u16> = "WiPSLaganiCm ".encode_utf16().collect();
-            let edit_class: Vec<u16> = "EDIT ".encode_utf16().collect();
-            let cm = FindWindowW(class.as_ptr(), std::ptr::null());
-            let edit = FindWindowExW(cm, std::ptr::null_mut(), edit_class.as_ptr(), std::ptr::null());
+            let edit_class: Vec<u16> = "EDIT".encode_utf16().chain(std::iter::once(0)).collect();
+            let pid = std::process::id();
+            let mut h = GetTopWindow(std::ptr::null_mut());
+            let mut edit = std::ptr::null_mut();
+            while !h.is_null() {
+                let mut wpid = 0u32;
+                GetWindowThreadProcessId(h, &mut wpid);
+                if wpid == pid && IsWindowVisible(h) != 0 {
+                    edit = FindWindowExW(h, std::ptr::null_mut(), edit_class.as_ptr(), std::ptr::null());
+                    if !edit.is_null() {
+                        break;
+                    }
+                }
+                h = GetWindow(h, GW_HWNDNEXT);
+            }
             let t: Vec<u16> = tekst.encode_utf16().chain(std::iter::once(0)).collect();
             SetWindowTextW(edit, t.as_ptr());
             PostMessageW(edit, WM_KEYDOWN, VK_RETURN as usize, 0);
