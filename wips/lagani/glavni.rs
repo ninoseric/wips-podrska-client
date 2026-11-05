@@ -315,6 +315,20 @@ fn crtaj(s: &mut Stanje) {
         } else if !id.is_empty() {
             p.ikona_gumb(copy, A::Kopiraj, ikona::COPY, pal.muted);
         }
+        let tip = if copied {
+            Some(tr("Copied"))
+        } else if p.is_hover(A::Kopiraj) {
+            Some(tr("Copy ID"))
+        } else {
+            None
+        };
+        if let Some(tip) = tip {
+            let tw = p.width(&tip, &f.small);
+            let right = ((copy.left + copy.right) / 2.0 + tw / 2.0 + 10.0).min(W - 8.0);
+            let r = rect(right - tw - 20.0, 172.0, right, 198.0);
+            p.c.fill_round(&r, 6.0, pal.text);
+            p.text(&tip, &f.small, &rect(r.left + 10.0, r.top, r.right, r.bottom), pal.card);
+        }
 
         p.text(&tr("wips_support_tip"), &f.tip, &rect(30.0, 268.0, W - 30.0, 326.0), pal.muted);
 
