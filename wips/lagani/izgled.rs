@@ -70,7 +70,7 @@ impl Fonts {
             title_sm: g.font(800, 18.0, Align::Center)?,
             status: g.font_vcenter(600, 13.0, Align::Left)?,
             label: g.font(600, 12.5, Align::Left)?,
-            id: g.font_vcenter(700, 24.0, Align::Center)?,
+            id: g.font_vcenter(700, 24.0, Align::Left)?,
             button: g.font_vcenter(700, 14.0, Align::Center)?,
             button_l: g.font_vcenter(700, 14.0, Align::Left)?,
             btn: g.font_vcenter(600, 13.0, Align::Center)?,

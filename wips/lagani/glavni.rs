@@ -16,13 +16,13 @@ use winapi::um::winuser::{
 
 use super::d2d::rect;
 use super::izgled::{self, format_id, ikona};
-use super::ui::{Prozor, Vrsta, WM_OSVJEZI};
+use super::ui::{Prozor, WM_OSVJEZI};
 use super::win32::{self, Pos, WindowSpec};
 use super::{postavke, tr};
 
 const CLASS: &str = "WiPSLaganiGlavni";
 const W: f32 = 340.0;
-const H: i32 = 456;
+const H: i32 = 368;
 const RED_H: i32 = 60;
 
 const TIMER_STATUS: usize = 1;
@@ -297,36 +297,28 @@ fn crtaj(s: &mut Stanje) {
             p.text(&t, &f.status, &rect(x + 14.0, 148.0, x + 16.0 + tw, 170.0), color);
         }
 
-        let card = rect(16.0, 188.0, W - 16.0, 344.0);
+        let card = rect(16.0, 188.0, W - 16.0, 256.0);
         p.c.fill_round(&card, 12.0, pal.card);
         p.c.stroke_round(&card, 12.0, pal.border, 1.0);
-        p.text(&tr("ID"), &f.label, &rect(34.0, 204.0, 200.0, 220.0), pal.muted);
+        let label = tr("ID");
+        let lw = p.width(&label, &f.status);
+        p.text(&label, &f.status, &rect(34.0, card.top, 36.0 + lw, card.bottom), pal.muted);
         let id_text = if id.is_empty() {
             "— — —".to_owned()
         } else {
             format_id(&id)
         };
-        let chip_w = (p.width(&id_text, &f.id) + 22.0).max(120.0).min(W - 68.0);
-        let chip = rect(34.0, 224.0, 34.0 + chip_w, 266.0);
-        p.c.fill_round(&chip, 8.0, pal.chip);
-        p.text(&id_text, &f.id, &chip, pal.text);
-        let label = if copied {
-            format!("{}  ✓", tr("Copied"))
-        } else {
-            tr("Copy ID")
-        };
-        p.gumb(
-            rect(34.0, 282.0, W - 34.0, 326.0),
-            A::Kopiraj,
-            Vrsta::Primarni,
-            &label,
-            Some(ikona::COPY),
-            true,
-        );
+        let copy = rect(W - 66.0, 204.0, W - 30.0, 240.0);
+        p.text(&id_text, &f.id, &rect(46.0 + lw, card.top, copy.left - 4.0, card.bottom), pal.text);
+        if copied {
+            p.c.icon(ikona::CHECK, &f.icon16, &copy, pal.ok);
+        } else if !id.is_empty() {
+            p.ikona_gumb(copy, A::Kopiraj, ikona::COPY, pal.muted);
+        }
 
-        p.text(&tr("wips_support_tip"), &f.tip, &rect(30.0, 356.0, W - 30.0, 414.0), pal.muted);
+        p.text(&tr("wips_support_tip"), &f.tip, &rect(30.0, 268.0, W - 30.0, 326.0), pal.muted);
 
-        let mut y = 422.0;
+        let mut y = 334.0;
         if red != Red::Nista {
             let r = rect(16.0, y, W - 16.0, y + 48.0);
             p.c.fill_round(&r, 10.0, pal.chip);
