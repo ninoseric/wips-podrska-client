@@ -1,0 +1,42 @@
+diff --git a/src/rendezvous_mediator.rs b/src/rendezvous_mediator.rs
+index b1e523d..5b6fc50 100644
+--- a/src/rendezvous_mediator.rs
++++ b/src/rendezvous_mediator.rs
+@@ -326,6 +326,10 @@ impl RendezvousMediator {
+                 for host in servers.clone() {
+                     let server = server.clone();
+                     let timeout = timeout.clone();
++                    if servers.len() > 1 {
++                        futs.push(tokio::spawn(Self::start_neovisno(server, host)));
++                        continue;
++                    }
+                     futs.push(tokio::spawn(async move {
+                         if let Err(err) = Self::start(server, host).await {
+                             let err = format!("rendezvous mediator error: {err}");
+@@ -362,6 +366,26 @@ impl RendezvousMediator {
+         }
+     }
+ 
++    // WiPS (glavni i rezervni server): greška jednog servera ne smije prekinuti prijavu na drugi,
++    // pa se svaki ponovno spaja sam; svi izlaze tek na SHOULD_EXIT (restart, promjena opcija).
++    async fn start_neovisno(server: ServerPtr, host: String) {
++        loop {
++            if let Err(err) = Self::start(server.clone(), host.clone()).await {
++                hbb_common::throttled_log!(
++                    std::time::Duration::from_secs(300),
++                    error,
++                    "rendezvous mediator error ({host}): {err}"
++                );
++            }
++            for _ in 0..10 {
++                if SHOULD_EXIT.load(Ordering::SeqCst) {
++                    return;
++                }
++                sleep(1.).await;
++            }
++        }
++    }
++
+     fn get_host_prefix(host: &str) -> String {
+         host.split(".")
+             .next()
