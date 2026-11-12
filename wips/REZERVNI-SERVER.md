@@ -36,3 +36,18 @@ Hetzneru. Ako glavni padne, podrška radi dalje bez ičije reakcije.
 2. Glavni nedostupan s obje strane, npr. firewall pravilo na testnoj virtualki prema 212.92.213.190: korisnik ostaje
    „Spreman”, tehničar se spaja preko rezervnog.
 3. Glavni se vrati: nove veze opet idu preko glavnog.
+
+### Rezultat (12. 11. 2026.)
+
+Lagani klijent (run 43291727961) u virtualki „Windows 11 Pro”, nepotpisana tehničarska Flutter verzija
+(run 43293582704) na domaćinu. Glavni server blokiran pravilom vatrozida: u virtualki za cijeli sustav, na domaćinu
+samo za testni tehničarski exe.
+
+| Slučaj | Rezultat |
+|---|---|
+| Oba servera rade | Klijent prijavljen na oba (hbbs na wips-rd2 zapisao ID 121179531); tehničar spojen preko `rd.wips.hr` |
+| Glavni blokiran | Klijent je odmah označio glavni nedostupnim, prešao na `78.47.36.250` i ostao „Spremno za podršku”, bez prekida prijave na rezervni. Tehničar: „try the other servers” za 2 ms, veza i relay preko `78.47.36.250:21117`, odobreno |
+| Glavni vraćen | Nova veza opet ide preko `rd.wips.hr` |
+
+Dok glavni ne radi, klijent svake 2 minute zapiše upozorenje da `https://rd.wips.hr/api/heartbeat` i `/api/sysinfo`
+ne odgovaraju (audit je samo na glavnom). Veze to ne ometa.
