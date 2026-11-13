@@ -8,7 +8,6 @@ use super::d2d::{Align, Gfx};
 pub const PHONE: &str = "01/61 76 166";
 pub const WEB: &str = "https://www.wips.hr";
 /// Izvorni kod (AGPL-3.0); oznake @@WIPS_*@@ se u wips/ ne zamjenjuju, pa je adresa ovdje upisana.
-pub const SOURCE_URL: &str = "https://github.com/ninoseric/wips-podrska-client";
 pub const LICENSE_URL: &str = "https://www.gnu.org/licenses/agpl-3.0.html";
 pub const NAZIV: &str = "WiPS udaljena podrška";
 

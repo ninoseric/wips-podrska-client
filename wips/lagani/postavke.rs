@@ -67,7 +67,6 @@ enum A {
     IpPopis,
     IdPopis,
     Pin,
-    Izvor,
     Web,
     Licenca,
 }
@@ -499,7 +498,6 @@ unsafe fn on_action(hwnd: HWND, a: A) {
         A::IpPopis => ip_popis(hwnd),
         A::IdPopis => id_popis(hwnd),
         A::Pin => pin(hwnd),
-        A::Izvor => win32::open_url(izgled::SOURCE_URL),
         A::Web => win32::open_url(izgled::WEB),
         A::Licenca => win32::open_url(izgled::LICENSE_URL),
     }
@@ -1348,8 +1346,7 @@ fn o_programu(p: &mut Ploha<A>, y: &mut f32, poz: &Pozadina) {
         ry += vh.max(18.0) + 8.0;
     }
     ry += 4.0;
-    let x = p.poveznica(CX + 20.0, ry, ry + 22.0, A::Izvor, "Izvorni kod", &f.small);
-    p.poveznica(x + 20.0, ry, ry + 22.0, A::Web, &tr("Website"), &f.small);
+    p.poveznica(CX + 20.0, ry, ry + 22.0, A::Web, &tr("Website"), &f.small);
     ry += 34.0;
     p.text(licenca, &f.tip_l, &rect(CX + 20.0, ry, CR - 20.0, ry + lh), pal.muted);
     ry += lh + 4.0;

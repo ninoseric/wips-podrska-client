@@ -256,3 +256,10 @@ Opaske:
 - Nadogradnja lagane na laganu nije provjerena: treba build s višom verzijom od instalirane (1.5.1).
 - Jedan restart virtualke zapeo je na „Restarting” nakon što je Windows već sve ugasio (VirtualBox); nije vezano uz
   servis.
+
+### Link na izvorni kod (13. 11. 2026.)
+
+Link „Izvorni kod” uklonjen je iz kartice „O programu” korisničke verzije (ostaju napomena o RustDesku i licenci
+te link na AGPL-3.0). Zbog AGPL-a izvorni kod mora ostati dostupan primateljima programa: **prije prve podjele**
+na stranici za preuzimanje (wips.hr), uz gumb za preuzimanje, treba stajati link na izvorni kod te verzije
+(ovaj repozitorij ili tag izdanja).
