@@ -224,3 +224,14 @@ Ostale postavke korisniku ne trebaju, a pogrešna promjena (ID, popisi pouzdanih
 zaustavljen servis) bi WiPS podršci onemogućila spajanje. Skriveni napredni prikaz za tehničare se ne radi.
 Odluka se donosi po verziji (`hbb_common::config::is_incoming_only()`, conn-type iz `wips/varijante/*.env`):
 verzija koja nije samo za primanje veza i dalje prikazuje sve postavke.
+
+## Odluka: lagani klijent je korisnička verzija (13. 11. 2026.)
+
+Lagani klijent prenesen je iz privatnog prototipnog repozitorija (`DBnotDatabase/wips-podrska-lagani`) u
+`wips-podrska-client` i postaje jedina korisnička verzija. Flutter se gradi još samo za tehničarsku verziju.
+
+- Korisnička verzija: `wips-build-lagani.yml`, potpis i okruženje `release` kao kod Flutter builda, artefakt
+  `wips-podrska-korisnik-windows-x64`.
+- Tehničarska verzija: `wips-build-windows.yml`, samo varijanta `tehnicar`.
+- Put nadogradnje s Flutter korisničke instalacije ne treba: Flutter korisnička verzija nije dana nijednom korisniku.
+- Prije prve podjele: test instalirane verzije (servis, pokretanje s Windowsima, nadogradnja lagane na laganu).

@@ -1,7 +1,5 @@
 # WiPS Udaljena Korisnicka Podrska: klijent
 
-> **Ovaj repo je prototip laganog korisničkog klijenta** (odvojen od `ninoseric/wips-podrska-client`). Analiza, smjer i plan: [`LAGANI.md`](LAGANI.md).
-
 Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0) na fiksiranoj verziji iz `wips/UPSTREAM`, uz WiPS izmjene koje se primjenjuju u CI-ju.
 
 | Što | Gdje |
@@ -10,9 +8,9 @@ Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0
 | Naše izmjene izvornog koda | `wips/patches/app/*.patch`, `wips/patches/hbb_common/*.patch` |
 | Brend (ikone, logo) | `wips/branding/` |
 | Primjena izmjena | `wips/apply-patches.sh <varijanta>` |
-| Build | `.github/workflows/wips-build-windows.yml` (ručno ili git tag `v*`), obje verzije paralelno |
-| Build laganog prototipa | `.github/workflows/wips-build-lagani.yml` (ručno): korisnička varijanta bez Fluttera, jedan exe; vidi [`LAGANI.md`](LAGANI.md) |
-| Potpis | Azure Artifact Signing u istom workflowu (postavljanje je opisano u zaglavlju); bez varijable `ARTIFACT_SIGNING_ACCOUNT` build je nepotpisan. Zbog environmenta `release` build se može pokrenuti samo s `main` ili taga `v*` |
+| Build korisničke verzije | `.github/workflows/wips-build-lagani.yml` (ručno ili git tag `v*`): lagani klijent bez Fluttera, jedan exe; vidi [`LAGANI.md`](LAGANI.md) |
+| Build tehničarske verzije | `.github/workflows/wips-build-windows.yml` (ručno ili git tag `v*`), Flutter |
+| Potpis | Azure Artifact Signing u oba workflowa (postavljanje je opisano u zaglavlju `wips-build-windows.yml`); bez varijable `ARTIFACT_SIGNING_ACCOUNT` build je nepotpisan. Zbog environmenta `release` build se može pokrenuti samo s `main` ili taga `v*` |
 
 **Licenca:** AGPL-3.0, kao upstream (`LICENCE`). Izvorni kod svake objavljene verzije javno je dostupan.
 
@@ -22,6 +20,7 @@ Ovaj repozitorij je **RustDesk** (https://github.com/rustdesk/rustdesk, AGPL-3.0
 | Naziv | `WiPSPodrska`, "WiPS Udaljena Korisnicka Podrska" | `WiPSPodrskaTehnicar`, "WiPS Podrska Tehnicar" |
 | Veze | samo prima (`conn-type=incoming`; jezgra odbija odlazne veze) | prima i pokreće |
 | Za koga | klijenti, stranica za preuzimanje | samo WiPS tehničari |
+| Sučelje | lagani klijent (`wips/lagani/`, Win32 + Direct2D, bez Fluttera) | Flutter |
 
 Vrijednosti su u `wips/varijante/<varijanta>.env`; zajedničke (server, ključ, linkovi) u `wips/server.env`.
 Nazivi moraju biti različiti: o njima ovise mapa instalacije, Windows servis, postavke i ID.
@@ -51,4 +50,4 @@ Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijant
 - [x] Faza 3: ikone, logo, "O aplikaciji", skrivene mrežne postavke
 - [x] Faza 4: pravi javni ključ s rd.wips.hr, test izvana (3. 11. 2026.)
 - [ ] Faza 5: korisnička i tehničarska verzija, test, pilot
-- [ ] Prototip laganog korisničkog klijenta (ovaj repo): build, mjerenje, odluka ([`LAGANI.md`](LAGANI.md))
+- [x] Lagani korisnički klijent ([`LAGANI.md`](LAGANI.md)); od 13. 11. 2026. jedina korisnička verzija, Flutter samo za tehničare

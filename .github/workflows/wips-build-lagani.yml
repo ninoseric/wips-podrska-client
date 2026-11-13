@@ -1,10 +1,15 @@
-# WiPS lagani korisnički klijent (prototip, wips/LAGANI.md): Rust jezgra RustDeska bez Fluttera + Win32 prozori
+# WiPS korisnička verzija (lagani klijent, wips/LAGANI.md): Rust jezgra RustDeska bez Fluttera + Win32 prozori
 # iz wips/lagani/. Gradi se s korisničkom varijantom (wips/varijante/korisnik.env) i istim patchevima kao Flutter
 # build, ali bez Fluttera, bridgea i TopMostWindow-a. Rezultat je jedan exe (WiPSPodrska.exe) koji se pokreće bez
-# raspakiravanja. Potpis se u prototipu preskače (postavljanje: wips-build-windows.yml).
-name: WiPS lagani (Windows x64)
+# raspakiravanja. Tehničarska verzija ostaje na Flutteru (wips-build-windows.yml).
+# Potpis: isti Azure Artifact Signing i isto okruženje "release" kao wips-build-windows.yml (postavljanje opisano
+# tamo); preskače se dok repo nema varijablu ARTIFACT_SIGNING_ACCOUNT.
+name: WiPS korisnička verzija - lagana (Windows x64)
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       hwcodec:
@@ -25,6 +30,12 @@ permissions:
 jobs:
   build-lagani-x64:
     runs-on: windows-2022
+    environment: release # uz njega je vezan federated credential u Azureu; dopušta samo main i tagove v*
+    permissions:
+      contents: read
+      id-token: write # OIDC prijava u Azure
+    env:
+      POTPIS: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' }}
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
@@ -117,6 +128,38 @@ jobs:
           mkdir -p out
           cp target/release/rustdesk.exe "out/${EXE_NAME}.exe"
 
+      - name: Prijava u Azure (OIDC, bez tajni)
+        if: env.POTPIS == 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Potpis exe-a
+        if: env.POTPIS == 'true'
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\out
+          files-folder-filter: exe
+          # Bez vremenskog žiga potpis prestaje vrijediti s certifikatom, a on traje oko 3 dana.
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+
+      - name: Provjera potpisa i vremenskog žiga
+        if: env.POTPIS == 'true'
+        shell: pwsh
+        run: |
+          $sig = Get-AuthenticodeSignature "out\$env:EXE_NAME.exe"
+          if ($sig.Status -ne 'Valid' -or -not $sig.TimeStamperCertificate) {
+            $sig | Format-List Path, Status, StatusMessage | Out-String | Write-Host
+            Write-Error "Exe nije ispravno potpisan s vremenskim žigom."
+            exit 1
+          }
+          Write-Host "Potpisano: $($sig.SignerCertificate.Subject)"
+
       - name: Veličina i ovisnosti exe-a
         shell: pwsh
         run: |
@@ -128,9 +171,13 @@ jobs:
           (Get-Item "out\$env:EXE_NAME.exe").VersionInfo | Format-List ProductName, FileDescription, FileVersion, CompanyName, OriginalFilename, InternalName
           (Get-ChildItem out | ForEach-Object { "{0} {1}" -f $_.Length, $_.Name }) | Set-Content out\VELICINA.txt
 
+      - name: SHA256SUMS
+        shell: bash
+        run: (cd out && sha256sum *.exe > SHA256SUMS && cat SHA256SUMS)
+
       - name: Upload exe
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: wips-podrska-lagani-windows-x64${{ inputs.hwcodec && '-hwcodec' || '' }}
+          name: wips-podrska-korisnik-windows-x64${{ inputs.hwcodec && '-hwcodec' || '' }}
           path: ./out
           if-no-files-found: error

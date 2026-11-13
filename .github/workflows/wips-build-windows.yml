@@ -1,4 +1,5 @@
-# WiPS Udaljena Korisnicka Podrska - Windows x64 build, korisnička i tehničarska verzija (wips/varijante/).
+# WiPS Udaljena Korisnicka Podrska - Windows x64 build tehničarske verzije (Flutter). Korisnička verzija je lagani
+# klijent bez Fluttera (wips-build-lagani.yml); Flutter korisnička verzija se od 13. 11. 2026. više ne gradi.
 # Skraćena kopija job-a build-for-windows-flutter (x86_64) iz upstream
 # .github/workflows/flutter-build.yml (RustDesk 1.5.1). Izostavljeno: arm64, testovi, MSI,
 # printer driver, update metadata.
@@ -64,7 +65,7 @@ jobs:
       matrix:
         # Naziv i način rada su ugrađeni u librustdesk.dll, pa svaka verzija ima svoj build.
         # Bez patcheva (upstream dijagnostika) gradi se samo jedna verzija.
-        varijanta: ${{ fromJSON((github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && '["upstream"]' || '["korisnik", "tehnicar"]') }}
+        varijanta: ${{ fromJSON((github.event_name == 'workflow_dispatch' && !inputs.apply_patches) && '["upstream"]' || '["tehnicar"]') }}
     env:
       # Upstream build nije naš program, pa na njemu ne smije biti potpis WiPS-a.
       POTPIS: ${{ vars.ARTIFACT_SIGNING_ACCOUNT != '' && matrix.varijanta != 'upstream' }}
