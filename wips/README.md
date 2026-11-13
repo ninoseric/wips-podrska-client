@@ -41,6 +41,7 @@ Korisničku verziju štiti pristanak korisnika (svako spajanje treba klik, lozin
 | `app/0005-wips-izgled-prozora-za-odobravanje` | prozor za odobravanje i tijek veze u korisničkoj verziji (`wips_cm_card.dart`, dio `server_page.dart`): zaglavlje s tehničarem i stanjem, napomena prije odobravanja, dozvole kao popis s prekidačima, gumbi u stilu C; logika gumba ostaje upstream (`_CmControlPanel`) |
 | `app/0006-wips-lagano-sucelje` | lagano sučelje (`wips/lagani/`, [`LAGANI.md`](LAGANI.md)): feature `lagani` u `Cargo.toml`, modul preko `#[path]` u `src/lib.rs`, poziv iz `src/main.rs`, manifest i ikona iz `build.rs`, glasovni poziv u `src/ui_cm_interface.rs` dostupan i uz `lagani`; bez feature-a `lagani` ne mijenja ništa (Flutter buildovi ga ne koriste) |
 | `app/0007-wips-rezervni-server` | s više servera svaki se u `src/rendezvous_mediator.rs` spaja i ponovno pokušava sam (`start_neovisno`), da pad jednoga ne prekida prijavu na drugi; s jednim serverom stari put ostaje netaknut |
+| `app/0008-wips-izdavac` | izdavač u unosu za deinstalaciju (`Publisher`) je `WIPS_PUBLISHER` (kao u potpisu), ne naziv aplikacije |
 
 Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijanta>.env`. Ikone (iste za obje verzije): `python3 -P wips/branding/generiraj-ikone.py` iz `logo-izvor.png` (treba Pillow), rezultat se commita; CI ih samo kopira.
 
