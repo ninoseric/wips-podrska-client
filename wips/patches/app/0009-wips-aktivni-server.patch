@@ -1,0 +1,13 @@
+diff --git a/src/ipc.rs b/src/ipc.rs
+index 44a1c8d..212a0bd 100644
+--- a/src/ipc.rs
++++ b/src/ipc.rs
+@@ -984,6 +984,8 @@ async fn handle(data: Data, stream: &mut Connection) {
+                     ));
+                 } else if name == "rendezvous_servers" {
+                     value = Some(Config::get_rendezvous_servers().join(","));
++                } else if name == "wips-aktivni-server" {
++                    value = Some(hbb_common::config::wips_aktivni_server());
+                 } else if name == "fingerprint" {
+                     value = if Config::get_key_confirmed() {
+                         Some(crate::common::pk_to_fingerprint(Config::get_key_pair().1))

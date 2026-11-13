@@ -48,6 +48,7 @@ enum A {
     Servis,
     Tema(usize),
     Jezik,
+    Server,
     Zvuk,
     Opcija(&'static str),
     TestPozadine,
@@ -412,6 +413,16 @@ unsafe fn on_action(hwnd: HWND, a: A) {
             let names: Vec<String> = list.iter().map(|(_, n)| n.clone()).collect();
             if let Some(i) = izbornik_za(hwnd, a, &names, Some(sel)) {
                 ui::set_local_option("lang".to_owned(), list[i].0.clone());
+                osvjezi_sve(hwnd);
+            }
+        }
+        A::Server => {
+            let cur = ui::get_option(hbb_common::config::WIPS_SERVER_OPCIJA);
+            let sel = SERVERI.iter().position(|(v, _)| *v == cur);
+            let names: Vec<String> = SERVERI.iter().map(|(_, n)| (*n).to_owned()).collect();
+            if let Some(i) = izbornik_za(hwnd, a, &names, sel) {
+                log::info!("lagani: izbor servera {:?}", SERVERI[i].0);
+                ui::set_option(hbb_common::config::WIPS_SERVER_OPCIJA.to_owned(), SERVERI[i].0.to_owned());
                 osvjezi_sve(hwnd);
             }
         }
@@ -1048,6 +1059,13 @@ fn crtaj_izbornik(p: &mut Ploha<A>, kartica: Kartica, jednostavno: bool) {
     }
 }
 
+/// Izbor servera (opcija hbb_common::config::WIPS_SERVER_OPCIJA): vrijednost i natpis.
+const SERVERI: [(&str, &str); 3] = [
+    ("", "Automatski (glavni, po potrebi rezervni)"),
+    ("glavni", "Samo glavni"),
+    ("rezervni", "Samo rezervni"),
+];
+
 fn opcenito(p: &mut Ploha<A>, y: &mut f32, installed: bool, wallpaper: bool, jednostavno: bool) {
     let stopped = get_b("stop-service");
     let servis = !(ui::get_builtin_option("hide-stop-service") == "Y" && !stopped);
@@ -1078,6 +1096,11 @@ fn opcenito(p: &mut Ploha<A>, y: &mut f32, installed: bool, wallpaper: bool, jed
         .unwrap_or_else(|| tr("Default"));
     let a = if fixed("lang") { None } else { Some(A::Jezik) };
     karta(p, y, &tr("Language"), &[Red::Padajuci { a, value: lang_name }]);
+    if hbb_common::config::wips_ima_rezervni() {
+        let cur = ui::get_option(hbb_common::config::WIPS_SERVER_OPCIJA);
+        let value = SERVERI.iter().find(|(v, _)| *v == cur).unwrap_or(&SERVERI[0]).1.to_owned();
+        karta(p, y, "Server", &[Red::Padajuci { a: Some(A::Server), value }]);
+    }
     if jednostavno {
         return;
     }

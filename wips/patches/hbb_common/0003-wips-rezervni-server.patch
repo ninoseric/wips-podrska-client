@@ -1,15 +1,63 @@
 diff --git a/src/config.rs b/src/config.rs
-index 93ae915..e5f3224 100644
+index 93ae915..7c76bfc 100644
 --- a/src/config.rs
 +++ b/src/config.rs
-@@ -1092,6 +1092,11 @@ impl Config {
+@@ -476,6 +476,30 @@ pub struct TransferSerde {
+     pub read_jobs: Vec<String>,
+ }
+ 
++/// WiPS: opcija izbora servera ("" automatski, "glavni", "rezervni"); vidi wips/REZERVNI-SERVER.md.
++pub const WIPS_SERVER_OPCIJA: &str = "wips-server";
++
++pub fn wips_ima_rezervni() -> bool {
++    !"@@WIPS_HOST2@@".is_empty()
++}
++
++/// WiPS: na koji je server klijent sada prijavljen ("glavni", "rezervni" ili "" ako ni na jedan).
++pub fn wips_aktivni_server() -> String {
++    let online = ONLINE.lock().unwrap();
++    let radi = |host: &str| {
++        online
++            .iter()
++            .any(|(k, v)| *v > 0 && k.split(':').next() == Some(host))
++    };
++    if radi("@@WIPS_HOST@@") {
++        "glavni".to_owned()
++    } else if wips_ima_rezervni() && radi("@@WIPS_HOST2@@") {
++        "rezervni".to_owned()
++    } else {
++        String::new()
++    }
++}
++
+ #[inline]
+ pub fn get_online_state() -> i64 {
+     *ONLINE.lock().unwrap().values().max().unwrap_or(&0)
+@@ -1066,6 +1090,12 @@ impl Config {
+         let mut rendezvous_server = EXE_RENDEZVOUS_SERVER.read().unwrap().clone();
+         if rendezvous_server.is_empty() {
+             rendezvous_server = Self::get_option("custom-rendezvous-server");
++            if rendezvous_server == "@@WIPS_HOST@@"
++                && wips_ima_rezervni()
++                && Self::get_option(WIPS_SERVER_OPCIJA) == "rezervni"
++            {
++                rendezvous_server = "@@WIPS_HOST2@@".to_owned();
++            }
+         }
+         if rendezvous_server.is_empty() {
+             rendezvous_server = PROD_RENDEZVOUS_SERVER.read().unwrap().clone();
+@@ -1092,6 +1122,15 @@ impl Config {
          }
          let s = Self::get_option("custom-rendezvous-server");
          if !s.is_empty() {
 +            // WiPS: uz ugrađeni glavni server i rezervni; prijava ide na oba, a tehničar prelazi
 +            // na rezervni kad glavni ne odgovara (wips/REZERVNI-SERVER.md).
-+            if s == "@@WIPS_HOST@@" && !"@@WIPS_HOST2@@".is_empty() {
-+                return vec![s, "@@WIPS_HOST2@@".to_owned()];
++            if s == "@@WIPS_HOST@@" && wips_ima_rezervni() {
++                return match Self::get_option(WIPS_SERVER_OPCIJA).as_str() {
++                    "glavni" => vec![s],
++                    "rezervni" => vec!["@@WIPS_HOST2@@".to_owned()],
++                    _ => vec![s, "@@WIPS_HOST2@@".to_owned()],
++                };
 +            }
              return vec![s];
          }

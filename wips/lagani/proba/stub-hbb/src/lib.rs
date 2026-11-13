@@ -9,4 +9,8 @@ pub mod config {
     pub fn is_incoming_only() -> bool {
         std::env::var("LAGANI_PUNO").is_err()
     }
+    pub const WIPS_SERVER_OPCIJA: &str = "wips-server";
+    pub fn wips_ima_rezervni() -> bool {
+        true
+    }
 }

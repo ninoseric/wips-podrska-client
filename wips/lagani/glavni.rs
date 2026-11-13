@@ -30,6 +30,9 @@ const TIMER_COPIED: usize = 2;
 /// ID dohvaćen od jezgre (ipc::get_id) u pozadinskoj niti, dok ga nit stanja još nije javila.
 static IPC_ID: Mutex<String> = Mutex::new(String::new());
 
+/// Server na koji je jezgra prijavljena ("glavni", "rezervni" ili prazno), iz pozadinske niti.
+static AKTIVNI: Mutex<String> = Mutex::new(String::new());
+
 #[derive(Clone, Copy, PartialEq)]
 enum A {
     Kopiraj,
@@ -64,6 +67,7 @@ struct Stanje {
     w: Prozor<A>,
     id: String,
     status: i32,
+    server: String,
     copied: bool,
     red: Red,
 }
@@ -97,6 +101,9 @@ pub fn run() {
             *v = id;
         }
     });
+    if hbb_common::config::wips_ima_rezervni() {
+        std::thread::spawn(prati_server);
+    }
     let height = H;
     let hwnd = unsafe {
         win32::create_window(&WindowSpec {
@@ -190,6 +197,7 @@ unsafe fn on_create(hwnd: HWND) {
         w,
         id: String::new(),
         status: 0,
+        server: String::new(),
         copied: false,
         red: red(),
     };
@@ -216,15 +224,38 @@ unsafe fn on_timer(hwnd: HWND, id: WPARAM) {
             new_id = v.clone();
         }
     }
+    let server = AKTIVNI.lock().map(|g| g.clone()).unwrap_or_default();
     let changed = with_ui(|s| {
-        let changed = s.id != new_id || s.status != st.status_num;
+        let changed = s.id != new_id || s.status != st.status_num || s.server != server;
         s.id = new_id;
         s.status = st.status_num;
+        s.server = server;
         changed
     })
     .unwrap_or(false);
     if changed {
         win32::redraw(hwnd);
+    }
+}
+
+fn prati_server() {
+    let rt = match hbb_common::tokio::runtime::Builder::new_current_thread().enable_all().build() {
+        Ok(rt) => rt,
+        Err(e) => {
+            log::error!("lagani: praćenje servera nije pokrenuto: {}", e);
+            return;
+        }
+    };
+    loop {
+        let v = rt
+            .block_on(crate::ipc::get_config("wips-aktivni-server"))
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        if let Ok(mut g) = AKTIVNI.lock() {
+            *g = v;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(3));
     }
 }
 
@@ -266,6 +297,7 @@ unsafe fn on_copy(hwnd: HWND) {
 fn crtaj(s: &mut Stanje) {
     let id = s.id.clone();
     let status = s.status;
+    let server = s.server.clone();
     let copied = s.copied;
     let red = s.red;
     s.w.crtaj(|p| {
@@ -282,7 +314,9 @@ fn crtaj(s: &mut Stanje) {
         };
         let title_font = if p.width(&title, &f.title) > W - 32.0 { &f.title_sm } else { &f.title };
         p.text(&title, title_font, &rect(16.0, 116.0, W - 16.0, 146.0), pal.text);
-        let line = if status > 0 {
+        let line = if status > 0 && !server.is_empty() {
+            Some((format!("{} ({})", tr("Connected to the WiPS server"), server), pal.ok))
+        } else if status > 0 {
             Some((tr("Connected to the WiPS server"), pal.ok))
         } else if status < 0 {
             Some((tr("not_ready_status"), pal.danger))

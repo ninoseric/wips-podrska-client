@@ -151,6 +151,10 @@ pub mod ipc {
     pub fn get_id() -> String {
         "121179531".to_owned()
     }
+    /// LAGANI_SERVER=glavni|rezervni glumi server na koji je jezgra prijavljena.
+    pub async fn get_config(name: &str) -> Result<Option<String>, String> {
+        Ok((name == "wips-aktivni-server").then(|| std::env::var("LAGANI_SERVER").unwrap_or_default()))
+    }
     pub async fn trusted_devices(request: crate::trusted_devices::authority::Request) -> Result<String, String> {
         use crate::trusted_devices::authority::Request;
         match request {
