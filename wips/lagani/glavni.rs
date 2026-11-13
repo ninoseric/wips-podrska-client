@@ -239,16 +239,8 @@ unsafe fn on_timer(hwnd: HWND, id: WPARAM) {
 }
 
 fn prati_server() {
-    let rt = match hbb_common::tokio::runtime::Builder::new_current_thread().enable_all().build() {
-        Ok(rt) => rt,
-        Err(e) => {
-            log::error!("lagani: praćenje servera nije pokrenuto: {}", e);
-            return;
-        }
-    };
     loop {
-        let v = rt
-            .block_on(crate::ipc::get_config("wips-aktivni-server"))
+        let v = crate::ipc::get_config("wips-aktivni-server")
             .ok()
             .flatten()
             .unwrap_or_default();
