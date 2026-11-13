@@ -235,3 +235,24 @@ Lagani klijent prenesen je iz privatnog prototipnog repozitorija (`DBnotDatabase
 - Tehničarska verzija: `wips-build-windows.yml`, samo varijanta `tehnicar`.
 - Put nadogradnje s Flutter korisničke instalacije ne treba: Flutter korisnička verzija nije dana nijednom korisniku.
 - Prije prve podjele: test instalirane verzije (servis, pokretanje s Windowsima, nadogradnja lagane na laganu).
+
+### Test potpisanog exe-a iz `main` (13. 11. 2026., run 43406014598, virtualka „Windows 11 Pro”)
+
+| Provjera | Rezultat |
+|---|---|
+| Potpis | `Valid`, WIPS SYSTEMS d.o.o., vremenski žig Microsoft; isto i za instalirane `WiPSPodrska.exe` i `RuntimeBroker_rustdesk.exe` |
+| Preuzimanje | exe s oznakom „s interneta” (Zone.Identifier, ZoneId=3) pokrenut kroz Explorer: SmartScreen (zadane postavke) nije upozorio |
+| Instalacija | „Instaliraj” → prozor instalacije → „Prihvati i instaliraj” → UAC → instalirano u `C:\Program Files\WiPSPodrska`, ikona na radnoj površini, pravila vatrozida, unos za deinstalaciju; instalirani prozor bez retka „Instaliraj”, isti ID |
+| Servis | `WiPSPodrska`, `Running`, `Auto`; nakon restarta virtualke servis i ikona u traci rade bez ičega |
+| Gašenje | servisi se ugase za ~7 s; gašenje s instaliranim servisom ~40 s |
+| Tehničar | potpisana tehničarska verzija (run 43406018910) spojila se na instaliranu verziju preko `rd.wips.hr`, nakon „Prihvati” sesija uspostavljena |
+
+Opaske:
+- UAC pri instalaciji prikazuje „Windows Command Processor” (Microsoft), ne naš potpisani exe: instalacija se, kao u
+  upstream RustDesku, pokreće kroz `cmd`.
+- Pri instalaciji se servis prvi put nije pokrenuo (SCM 7000/7009, istek 30 s), instalacija ga je odmah ponovno
+  registrirala i od tada radi.
+- Izdavač u unosu za deinstalaciju je „WiPSPodrska” (naziv aplikacije), ne „WIPS SYSTEMS d.o.o.”.
+- Nadogradnja lagane na laganu nije provjerena: treba build s višom verzijom od instalirane (1.5.1).
+- Jedan restart virtualke zapeo je na „Restarting” nakon što je Windows već sve ugasio (VirtualBox); nije vezano uz
+  servis.
