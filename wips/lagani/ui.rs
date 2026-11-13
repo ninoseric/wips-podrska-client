@@ -237,15 +237,6 @@ impl<'a, A: Copy + PartialEq> Ploha<'a, A> {
         x + w
     }
 
-    /// Tekstualni gumb (npr. „Instaliraj” u retku s uputom).
-    pub fn tekst_gumb(&mut self, r: D2D_RECT_F, a: A, label: &str) {
-        if self.is_hover(a) {
-            self.c.fill_round(&r, 8.0, self.p.border);
-        }
-        self.c.text(label, &self.f.btn, &r, self.p.text);
-        self.hit(r, a);
-    }
-
     /// Prekidač 30×17 (dozvole u CM prozoru); bez akcije se samo prikazuje.
     pub fn prekidac(&mut self, x: f32, cy: f32, on: bool, a: Option<A>) {
         let r = rect(x, cy - 8.5, x + 30.0, cy + 8.5);

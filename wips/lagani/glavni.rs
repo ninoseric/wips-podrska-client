@@ -23,7 +23,6 @@ use super::{postavke, tr};
 const CLASS: &str = "WiPSLaganiGlavni";
 const W: f32 = 340.0;
 const H: i32 = 368;
-const RED_H: i32 = 60;
 
 const TIMER_STATUS: usize = 1;
 const TIMER_COPIED: usize = 2;
@@ -98,7 +97,7 @@ pub fn run() {
             *v = id;
         }
     });
-    let height = if red() == Red::Nista { H } else { H + RED_H };
+    let height = H;
     let hwnd = unsafe {
         win32::create_window(&WindowSpec {
             class: CLASS,
@@ -332,33 +331,7 @@ fn crtaj(s: &mut Stanje) {
 
         p.text(&tr("wips_support_tip"), &f.tip, &rect(30.0, 268.0, W - 30.0, 326.0), pal.muted);
 
-        let mut y = 334.0;
-        if red != Red::Nista {
-            let r = rect(16.0, y, W - 16.0, y + 48.0);
-            p.c.fill_round(&r, 10.0, pal.chip);
-            p.c.icon(ikona::INFO, &f.icon16, &rect(26.0, y, 44.0, y + 48.0), pal.muted);
-            let (text, btn, a) = match red {
-                Red::Instalacija => (tr("wips_install_tip"), tr("Install"), A::Instaliraj),
-                _ => (
-                    tr("Your installation is lower version."),
-                    tr("Click to upgrade"),
-                    A::Nadogradi,
-                ),
-            };
-            let bw = p.width(&btn, &f.btn) + 20.0;
-            let br = rect(r.right - 6.0 - bw, y + 8.0, r.right - 6.0, y + 40.0);
-            let tw = br.left - 6.0 - 52.0;
-            let (_, th) = p.c.measure(&text, &f.tip_l, tw);
-            p.text(
-                &text,
-                &f.tip_l,
-                &rect(52.0, y + (48.0 - th) / 2.0, br.left - 6.0, y + 48.0),
-                pal.text,
-            );
-            p.tekst_gumb(br, a, &btn);
-            y += RED_H as f32;
-        }
-
+        let y = 334.0;
         let top = y + 4.0;
         let bottom = top + 22.0;
         let lead = format!("{}  ·  ", izgled::PHONE);
@@ -367,6 +340,22 @@ fn crtaj(s: &mut Stanje) {
         let x = p.poveznica(20.0 + lw, top, bottom, A::Web, "wips.hr", &f.small);
         let ver = format!("  ·  v{}", crate::VERSION);
         p.text(&ver, &f.small, &rect(x, top, W - 44.0, bottom), pal.muted);
+        let poziv = match red {
+            Red::Instalacija => Some((tr("Install"), tr("wips_install_tip"), A::Instaliraj)),
+            Red::Nadogradnja => Some((tr("Update"), tr("Your installation is lower version."), A::Nadogradi)),
+            Red::Nista => None,
+        };
+        if let Some((label, tip, a)) = poziv {
+            let lx = W - 48.0 - p.width(&label, &f.small);
+            p.poveznica(lx, top, bottom, a, &label, &f.small);
+            if p.is_hover(a) {
+                let tw = p.width(&tip, &f.small).min(W - 36.0);
+                let right = W - 46.0;
+                let r = rect((right - tw - 20.0).max(8.0), top - 32.0, right, top - 6.0);
+                p.c.fill_round(&r, 6.0, pal.text);
+                p.text(&tip, &f.small, &rect(r.left + 10.0, r.top, r.right, r.bottom), pal.card);
+            }
+        }
         p.ikona_gumb(
             rect(W - 40.0, top - 5.0, W - 8.0, bottom + 5.0),
             A::Postavke,
