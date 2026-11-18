@@ -251,8 +251,11 @@ Opaske:
 - UAC pri instalaciji prikazuje „Windows Command Processor” (Microsoft), ne naš potpisani exe: instalacija se, kao u
   upstream RustDesku, pokreće kroz `cmd`.
 - Pri instalaciji se servis prvi put nije pokrenuo (SCM 7000/7009, istek 30 s), instalacija ga je odmah ponovno
-  registrirala i od tada radi.
-- Izdavač u unosu za deinstalaciju je „WiPSPodrska” (naziv aplikacije), ne „WIPS SYSTEMS d.o.o.”.
+  registrirala i od tada radi. Uzrok (18. 11.): instalacija servis najprije privremeno upiše s
+  `--import-config "…\WiPSPodrska.toml"` (RustDeskov uvoz postavki). Taj proces ne javlja se SCM-u, pa nakon isteka
+  slijedi pravi upis s `--service`. Ponavlja se pri svakoj instalaciji i bezopasno je.
+- Izdavač u unosu za deinstalaciju je „WiPSPodrska” (naziv aplikacije), ne „WIPS SYSTEMS d.o.o.”. Ispravljeno
+  zakrpom 0008, a 18. 11. provjereno: „WIPS SYSTEMS d.o.o.”.
 - Nadogradnja lagane na laganu nije provjerena: treba build s višom verzijom od instalirane (1.5.1).
 - Jedan restart virtualke zapeo je na „Restarting” nakon što je Windows već sve ugasio (VirtualBox); nije vezano uz
   servis.
@@ -263,3 +266,15 @@ Link „Izvorni kod” uklonjen je iz kartice „O programu” korisničke verzi
 te link na AGPL-3.0). Zbog AGPL-a izvorni kod mora ostati dostupan primateljima programa: **prije prve podjele**
 na stranici za preuzimanje (wips.hr), uz gumb za preuzimanje, treba stajati link na izvorni kod te verzije
 (ovaj repozitorij ili tag izdanja).
+
+### Instalacija iz podnožja i mapa programa (18. 11. 2026.)
+
+- Link „Instaliraj” u podnožju (od 0b38dde) provjeren je u pravom programu (run 43518052517). Otvara prozor
+  instalacije, slijedi UAC, a instalirani program se sam pokrene s istim ID-om i bez linka „Instaliraj”.
+- **Greška:** instalacija i nadogradnja (`install_me`, `update_me` u `src/platform/windows.rs`) XCOPY-jem kopiraju
+  u `C:\Program Files\WiPSPodrska` cijelu mapu iz koje je exe pokrenut, s podmapama. Flutter verzija radi iz
+  vlastite raspakirane mape, ali lagani exe korisnik pokreće iz Preuzimanja, pa bi se u Program Files kopirale sve
+  njegove preuzete datoteke. Iz cijele mape računala se i veličina u popisu programa. Greška je otkrivena kad je
+  `--silent-install` u virtualki kopirao testne skripte iz iste mape.
+- **Ispravak:** zakrpa `app/0010`. Uz `lagani` kopira se samo exe, pod imenom aplikacije, a veličina se računa iz
+  exe-a. Provjera u virtualki je u tijeku.
