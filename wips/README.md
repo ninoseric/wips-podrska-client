@@ -33,7 +33,7 @@ Korisničku verziju štiti pristanak korisnika (svako spajanje treba klik, lozin
 |---|---|
 | `hbb_common/0001-wips-naziv-server-kljuc` | naziv aplikacije, ID server, javni ključ, api-server (zapis spajanja) |
 | `hbb_common/0002-wips-ugradjene-opcije` | skriva "Powered by RustDesk" i mrežne postavke (server, proxy, WebSocket), da korisnika nitko ne može nagovoriti na tuđi server; način rada verzije (`conn-type`); u korisničkoj verziji skriva kartice Mreža, Račun i Pisač u Postavkama (`WIPS_SKRIJ_KARTICE`) i prisiljava spajanje samo uz klik korisnika, bez lozinke (`approve-mode=click`, `WIPS_SAMO_KLIK_OPCIJA`) |
-| `hbb_common/0003-wips-rezervni-server` | uz glavni server (`WIPS_HOST`) vraća i rezervni (`WIPS_HOST2`) kao popis servera; prazan `WIPS_HOST2` ne mijenja ništa ([`REZERVNI-SERVER.md`](REZERVNI-SERVER.md)) |
+| `hbb_common/0003-wips-rezervni-server` | uz glavni server (`WIPS_HOST`) vraća i rezervni (`WIPS_HOST2`) kao popis servera; opcija `wips-server` bira servere (prazno = automatski oba, `glavni`, `rezervni`), a `wips_aktivni_server()` javlja na koji je klijent prijavljen; prazan `WIPS_HOST2` ne mijenja ništa ([`REZERVNI-SERVER.md`](REZERVNI-SERVER.md)) |
 | `app/0001-wips-windows-metapodaci` | naziv i tvrtka u svojstvima .exe datoteka (program i exe koji se preuzima), izvorni naziv = naziv verzije |
 | `app/0002-wips-o-programu-i-licenca` | "O aplikaciji": izvorni kod, wips.hr, napomena o RustDesku i licenci; instalacija: link na licencu umjesto RustDeskove izjave o privatnosti |
 | `app/0003-wips-hr-prijevod-naziva` | hrvatski tekstovi u kojima se naziv sklanja ("RustDesku" bi postalo "WiPSPodrskau") |
@@ -42,6 +42,7 @@ Korisničku verziju štiti pristanak korisnika (svako spajanje treba klik, lozin
 | `app/0006-wips-lagano-sucelje` | lagano sučelje (`wips/lagani/`, [`LAGANI.md`](LAGANI.md)): feature `lagani` u `Cargo.toml`, modul preko `#[path]` u `src/lib.rs`, poziv iz `src/main.rs`, manifest i ikona iz `build.rs`, glasovni poziv u `src/ui_cm_interface.rs` dostupan i uz `lagani`; bez feature-a `lagani` ne mijenja ništa (Flutter buildovi ga ne koriste) |
 | `app/0007-wips-rezervni-server` | s više servera svaki se u `src/rendezvous_mediator.rs` spaja i ponovno pokušava sam (`start_neovisno`), da pad jednoga ne prekida prijavu na drugi; s jednim serverom stari put ostaje netaknut |
 | `app/0008-wips-izdavac` | izdavač u unosu za deinstalaciju (`Publisher`) je `WIPS_PUBLISHER` (kao u potpisu), ne naziv aplikacije |
+| `app/0009-wips-aktivni-server` | IPC upit `wips-aktivni-server` u `src/ipc.rs`: sučelje od servisa doznaje na koji je server klijent prijavljen i prikazuje „glavni” ili „rezervni” na početnom prozoru |
 
 Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijanta>.env`. Ikone (iste za obje verzije): `python3 -P wips/branding/generiraj-ikone.py` iz `logo-izvor.png` (treba Pillow), rezultat se commita; CI ih samo kopira.
 
