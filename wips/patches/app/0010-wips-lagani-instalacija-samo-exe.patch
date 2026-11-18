@@ -1,0 +1,36 @@
+diff --git a/src/platform/windows.rs b/src/platform/windows.rs
+index b4d2f15..f9a04d9 100644
+--- a/src/platform/windows.rs
++++ b/src/platform/windows.rs
+@@ -1506,6 +1506,7 @@ fn get_install_info_with_subkey(subkey: String) -> (String, String, String, Stri
+     (subkey, path, start_menu, exe)
+ }
+ 
++#[cfg(not(feature = "lagani"))]
+ pub fn copy_raw_cmd(src_raw: &str, _raw: &str, _path: &str) -> ResultType<String> {
+     let main_raw = format!(
+         "XCOPY \"{}\" \"{}\" /Y /E /H /C /I /K /R /Z",
+@@ -1519,6 +1520,13 @@ pub fn copy_raw_cmd(src_raw: &str, _raw: &str, _path: &str) -> ResultType<String
+     return Ok(main_raw);
+ }
+ 
++// WiPS lagani: program je jedan exe koji korisnik pokreće iz svoje mape (npr. Preuzimanja), pa se kopira
++// samo on, pod imenom aplikacije; XCOPY iznad kopirao bi cijelu tu mapu s podmapama.
++#[cfg(feature = "lagani")]
++pub fn copy_raw_cmd(src_raw: &str, raw: &str, _path: &str) -> ResultType<String> {
++    Ok(format!("copy /Y \"{src_raw}\" \"{raw}\""))
++}
++
+ pub fn copy_exe_cmd(src_exe: &str, exe: &str, path: &str) -> ResultType<String> {
+     let main_exe = copy_raw_cmd(src_exe, exe, path)?;
+     Ok(format!(
+@@ -1714,7 +1722,9 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{start_menu}\\\"
+     }
+ 
+     let meta = std::fs::symlink_metadata(&current_exe)?;
++    #[allow(unused_mut)]
+     let mut size = meta.len() / 1024;
++    #[cfg(not(feature = "lagani"))]
+     if let Some(parent_dir) = current_exe.parent() {
+         if let Some(d) = parent_dir.to_str() {
+             size = get_directory_size_kb(d);

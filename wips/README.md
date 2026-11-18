@@ -43,6 +43,7 @@ Korisničku verziju štiti pristanak korisnika (svako spajanje treba klik, lozin
 | `app/0007-wips-rezervni-server` | s više servera svaki se u `src/rendezvous_mediator.rs` spaja i ponovno pokušava sam (`start_neovisno`), da pad jednoga ne prekida prijavu na drugi; s jednim serverom stari put ostaje netaknut |
 | `app/0008-wips-izdavac` | izdavač u unosu za deinstalaciju (`Publisher`) je `WIPS_PUBLISHER` (kao u potpisu), ne naziv aplikacije |
 | `app/0009-wips-aktivni-server` | IPC upit `wips-aktivni-server` u `src/ipc.rs`: sučelje od servisa doznaje na koji je server klijent prijavljen i prikazuje „glavni” ili „rezervni” na početnom prozoru |
+| `app/0010-wips-lagani-instalacija-samo-exe` | uz `lagani` instalacija i nadogradnja (`src/platform/windows.rs`) u mapu programa kopiraju samo pokrenuti exe, pod imenom aplikacije, a ne cijelu mapu iz koje je pokrenut (upstream XCOPY kopirao bi npr. cijele Preuzimanja); veličina u popisu programa je veličina exe-a; bez `lagani` ne mijenja ništa |
 
 Vrijednosti `@@WIPS_*@@` dolaze iz `wips/server.env` i `wips/varijante/<varijanta>.env`. Ikone (iste za obje verzije): `python3 -P wips/branding/generiraj-ikone.py` iz `logo-izvor.png` (treba Pillow), rezultat se commita; CI ih samo kopira.
 
