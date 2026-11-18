@@ -256,8 +256,8 @@ pub unsafe fn otvori(owner: HWND) {
         pos: Pos::Center,
         owner,
         width: W as i32,
-        // Korisnička verzija ima malo sadržaja (servis, tema, jezik ili O programu) pa je prozor niži.
-        height: if hbb_common::config::is_incoming_only() { H_JEDNOSTAVNO } else { H },
+        // Prenosiva korisnička verzija ima malo sadržaja (tema, jezik, server) pa je prozor niži; instalirana uz to ima i servis.
+        height: if hbb_common::config::is_incoming_only() && !ui::is_installed() { H_JEDNOSTAVNO } else { H },
         scale: win32::scale(),
         background: super::tema::pal().bg.0,
         topmost: false,
